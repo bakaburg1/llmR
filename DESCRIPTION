@@ -1,0 +1,24 @@
+Package: llmR
+Title: R interface to Large Language Models with an OpenAi compatible API
+Version: 0.1.0
+Authors@R: 
+    person("Angelo", "D'Ambrosio", , "a.dambrosioMD@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-2045-5155"))
+Description: Provides an interface to various Large Language Models (LLM)
+    providers (OpenAI, Azure, or custom local servers). It handles prompt
+    processing, rate limiting, retries, and error processing for responses.
+License: MIT + file LICENSE
+Imports: 
+    utils (>= 4.4.0),
+    purrr (>= 1.0.2),
+    httr (>= 1.4.7),
+    jsonlite (>= 1.8.8),
+    vctrs (>= 0.6.5)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1
+Suggests: 
+    testthat (>= 3.0.0),
+    tictoc (>= 1.0),
+    withr
+Config/testthat/edition: 3
