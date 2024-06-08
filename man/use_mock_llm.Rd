@@ -29,7 +29,8 @@ The function returns the mock response.
 \description{
 This function mocks a call to a language model provider and returns a
 predefined response. It is used for testing purposes to avoid making actual
-requests to the language model provider.
+requests to the language model provider. The function simulates a delay in
+the response to mimic the actual response time.
 }
 \examples{
 
@@ -43,7 +44,5 @@ response = "Test successful!"
 print(response)
 
 }
-
-
 
 }

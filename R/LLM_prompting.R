@@ -6,15 +6,18 @@
 #'
 #' The standard format is a list of chat messages with the following structure:
 #' message: `c(role = "system", content = "Welcome to the chat!")`
+#'
 #' list of messages: \code{list(
 #'    c(role = "system", content = "You are an useful AI assistant."),
 #'    c(role = "user", content = "Hi there!")
 #'  )}
+#'
 #'  list format: \code{list(
 #'    list(role = "system", content = "You are an useful AI assistant."),
 #'    list(role = "user", content = "Hi there!")
 #'  )}
-#'  list of lists format: \code{list(
+#'
+#'  multiple parallel prompts: \code{list(
 #'    list(
 #'      list(role = "system", content = "You are an useful AI assistant."),
 #'      list(role = "user", content = "Hi there!")
