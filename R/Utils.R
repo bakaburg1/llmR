@@ -22,10 +22,12 @@ check_and_install_dependencies <- function(deps) {
           title = paste0(dep, " is not installed. Install it now?")) == 1
 
         if(do_install) {
-          try({
+          tryCatch({
             utils::install.packages(dep)
             # After successful installation, recheck if the package is now installed
             is_installed <- requireNamespace(dep, quietly = FALSE)
+          }, error = function(e) {
+            stop("Failed to install ", dep, ": ", e$message)
           })
         }
       }
