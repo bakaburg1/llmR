@@ -213,15 +213,18 @@ prompt_llm <- function(
     if (httr::status_code(response) == 429) {
       warning("Rate limit exceeded. Waiting before retrying.",
               immediate. = TRUE, call. = FALSE)
+      if (log_request) {
+        message(httr::content(response)$error$message)
+      }
 
       to_wait <- as.numeric(httr::headers(response)$`retry-after`)
+
       message("Waiting for ", to_wait, " seconds.\n...")
       Sys.sleep(to_wait)
       message("Retrying...")
       retry <- TRUE
     }
   }
-
 
   # Check for errors in response
   if (httr::http_error(response)) {
