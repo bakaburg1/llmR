@@ -22,8 +22,8 @@ rate limiting, retries, and error processing.
   when rate limits are exceeded. If a response is cut due to token
   limits, the package will ask the LLM to complete the response.
 - **Custom Providers**: Interrogate custom endpoints (local and online)
-  and allow to implement ad-hoc LLM interrogation functions.
-- **Mock Calls**: Allows to simulate LLM interactions for testing
+  and allow implementation of ad-hoc LLM connection functions.
+- **Mock Calls**: Allows simulation of LLM interactions for testing
   purposes.
 - **Logging**: Option to log request times for performance monitoring.
 
