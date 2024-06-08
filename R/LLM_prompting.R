@@ -475,3 +475,79 @@ use_custom_llm <- function(
   )
 
 }
+
+#' Mock Language Model call for testing
+#'
+#' This function mocks a call to a language model provider and returns a
+#' predefined response. It is used for testing purposes to avoid making actual
+#' requests to the language model provider. The function simulates a delay in
+#' the response to mimic the actual response time.
+#'
+#' @param body The body of the request.
+#' @param model The model identifier for the mock response. Defaults to
+#'   "FakeLLama" (which obviously doesn't exist).
+#' @param response The response to be returned by the mock call. The response
+#'   can be set globally using the `llmr_mock_response` option.
+#' @param log_request A boolean to log the request time. Can be set up globally
+#'   using the `llmr_log_requests` option, which defaults to TRUE.
+#'
+#' @return The function returns the mock response.
+#'
+#' @examples
+#'
+#' \dontrun{
+#' response <- use_mock_llm(
+#' body = list(messages = list(list(role = "user", content = "Hello"))),
+#' model = "FakeLLama",
+#' response = "Test successful!"
+#' )
+#'
+#' print(response)
+#'
+#' }
+#'
+#' @export
+use_mock_llm <- function(
+    body,
+    model = "FakeLLama",
+    response = getOption("llmr_mock_response", "Test successful!"),
+    log_request = getOption("llmr_log_requests", TRUE)
+) {
+
+  # Simulate a delay in the response
+  Sys.sleep(.1)
+
+  if (log_request) {
+    message("Interrogating MockLLM: ", model, "...")
+  }
+
+  # Build the mock response
+  response_content <- list(
+    choices = list(list(
+      index = 0,
+      message = list(role = "assistant", content = response),
+      logprobs = NULL,
+      finish_reason = "stop"
+    )),
+    usage = list(
+      prompt_tokens = 10,
+      completion_tokens = 20,
+      total_tokens = 30
+    )
+  )
+
+  response <- list(
+    url = "http://www.fakellama.com",
+    status_code = 200L,  # Ensure status_code is integer
+    headers = list("Content-Type" = "application/json"),
+    content = charToRaw(
+      jsonlite::toJSON(
+        response_content, auto_unbox = TRUE))  # Encode content as raw vector
+  )
+
+  # Transform the response into a response object
+  class(response) <- "response"
+
+  response
+
+}
