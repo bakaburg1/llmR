@@ -6,15 +6,18 @@
 #'
 #' The standard format is a list of chat messages with the following structure:
 #' message: `c(role = "system", content = "Welcome to the chat!")`
+#'
 #' list of messages: \code{list(
 #'    c(role = "system", content = "You are an useful AI assistant."),
 #'    c(role = "user", content = "Hi there!")
 #'  )}
+#'
 #'  list format: \code{list(
 #'    list(role = "system", content = "You are an useful AI assistant."),
 #'    list(role = "user", content = "Hi there!")
 #'  )}
-#'  list of lists format: \code{list(
+#'
+#'  multiple parallel prompts: \code{list(
 #'    list(
 #'      list(role = "system", content = "You are an useful AI assistant."),
 #'      list(role = "user", content = "Hi there!")
@@ -213,15 +216,18 @@ prompt_llm <- function(
     if (httr::status_code(response) == 429) {
       warning("Rate limit exceeded. Waiting before retrying.",
               immediate. = TRUE, call. = FALSE)
+      if (log_request) {
+        message(httr::content(response)$error$message)
+      }
 
       to_wait <- as.numeric(httr::headers(response)$`retry-after`)
+
       message("Waiting for ", to_wait, " seconds.\n...")
       Sys.sleep(to_wait)
       message("Retrying...")
       retry <- TRUE
     }
   }
-
 
   # Check for errors in response
   if (httr::http_error(response)) {
@@ -298,7 +304,7 @@ prompt_llm <- function(
 
         ans_new <- prompt_llm(
           messages_new, provider = provider, params = params,
-          force_json = force_json,
+          force_json = FALSE,
           log_request = log_request, ...
         )
 
@@ -388,8 +394,8 @@ use_azure_llm <- function(
 
   if (is.null(resource_name) || is.null(deployment_id) ||
       is.null(api_key) || is.null(api_version)) {
-    stop("Azure GPT resource name, deployment name,",
-         ", API key, or API version are not set. ",
+    stop("Azure GPT resource name, deployment name, ",
+         "API key, or API version are not set. ",
          "Use the following options to set them:\n",
          "llmr_azure_deployment_gpt, ",
          "llmr_azure_resource_gpt, ",
@@ -470,5 +476,81 @@ use_custom_llm <- function(
       }),
     body = jsonlite::toJSON(body, auto_unbox = TRUE)
   )
+
+}
+
+#' Mock Language Model call for testing
+#'
+#' This function mocks a call to a language model provider and returns a
+#' predefined response. It is used for testing purposes to avoid making actual
+#' requests to the language model provider. The function simulates a delay in
+#' the response to mimic the actual response time.
+#'
+#' @param body The body of the request.
+#' @param model The model identifier for the mock response. Defaults to
+#'   "FakeLLama" (which obviously doesn't exist).
+#' @param response The response to be returned by the mock call. The response
+#'   can be set globally using the `llmr_mock_response` option.
+#' @param log_request A boolean to log the request time. Can be set up globally
+#'   using the `llmr_log_requests` option, which defaults to TRUE.
+#'
+#' @return The function returns the mock response.
+#'
+#' @examples
+#'
+#' \dontrun{
+#' response <- use_mock_llm(
+#' body = list(messages = list(list(role = "user", content = "Hello"))),
+#' model = "FakeLLama",
+#' response = "Test successful!"
+#' )
+#'
+#' print(response)
+#'
+#' }
+#'
+#' @export
+use_mock_llm <- function(
+    body,
+    model = "FakeLLama",
+    response = getOption("llmr_mock_response", "Test successful!"),
+    log_request = getOption("llmr_log_requests", TRUE)
+) {
+
+  # Simulate a delay in the response
+  Sys.sleep(.1)
+
+  if (log_request) {
+    message("Interrogating MockLLM: ", model, "...")
+  }
+
+  # Build the mock response
+  response_content <- list(
+    choices = list(list(
+      index = 0,
+      message = list(role = "assistant", content = response),
+      logprobs = NULL,
+      finish_reason = "stop"
+    )),
+    usage = list(
+      prompt_tokens = 10,
+      completion_tokens = 20,
+      total_tokens = 30
+    )
+  )
+
+  response <- list(
+    url = "http://www.fakellama.com",
+    status_code = 200L,  # Ensure status_code is integer
+    headers = list("Content-Type" = "application/json"),
+    content = charToRaw(
+      jsonlite::toJSON(
+        response_content, auto_unbox = TRUE))  # Encode content as raw vector
+  )
+
+  # Transform the response into a response object
+  class(response) <- "response"
+
+  response
 
 }
