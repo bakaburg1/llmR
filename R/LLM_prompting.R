@@ -391,8 +391,8 @@ use_azure_llm <- function(
 
   if (is.null(resource_name) || is.null(deployment_id) ||
       is.null(api_key) || is.null(api_version)) {
-    stop("Azure GPT resource name, deployment name,",
-         ", API key, or API version are not set. ",
+    stop("Azure GPT resource name, deployment name, ",
+         "API key, or API version are not set. ",
          "Use the following options to set them:\n",
          "llmr_azure_deployment_gpt, ",
          "llmr_azure_resource_gpt, ",
