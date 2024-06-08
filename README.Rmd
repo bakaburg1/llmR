@@ -25,7 +25,7 @@ knitr::opts_chunk$set(
 - **Unified API**: Interact with different LLM providers using a consistent set of functions.
 - **Prompt Processing**: Convert chat messages into a standard format suitable for LLMs.
 - **Error Handling**: Automatically handle errors and retry requests when rate limits are exceeded. If a response is cut due to token limits, the package will ask the LLM to complete the response.
-- **Custom Providers**: Interrogate custom endpoints (local and online) and allow implementation of ad-hoc LLM interrogation functions.
+- **Custom Providers**: Interrogate custom endpoints (local and online) and allow implementation of ad-hoc LLM connection functions.
 - **Mock Calls**: Allows simulation of LLM interactions for testing purposes.
 - **Logging**: Option to log request times for performance monitoring.
 
