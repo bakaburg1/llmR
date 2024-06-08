@@ -301,7 +301,7 @@ prompt_llm <- function(
 
         ans_new <- prompt_llm(
           messages_new, provider = provider, params = params,
-          force_json = force_json,
+          force_json = FALSE,
           log_request = log_request, ...
         )
 
