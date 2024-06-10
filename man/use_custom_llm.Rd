@@ -33,6 +33,6 @@ endpoint.
 }
 \description{
 Sends a request to a custom (local or remote) language model endpoint
-compatible with the OpenAi API specification, using the parameters in the
+compatible with the OpenAI API specification, using the parameters in the
 \code{body} argument. The user can provide an API key if required.
 }

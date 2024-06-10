@@ -1,11 +1,11 @@
 Package: llmR
-Title: R interface to Large Language Models with an OpenAi compatible API
-Version: 1.0.0
+Title: Interface to Large Language Models with an OpenAI Compatible API
+Version: 1.0.1
 Authors@R: 
     person("Angelo", "D'Ambrosio", , "a.dambrosioMD@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-2045-5155"))
 Description: Provides an interface to various Large Language Models (LLM)
-    providers (OpenAI, Azure, or custom local servers). It handles prompt
+    providers (OpenAI, Azure, or other local/online endpoint). It handles prompt
     processing, rate limiting, retries, and error processing for responses.
 License: MIT + file LICENSE
 Imports: 
