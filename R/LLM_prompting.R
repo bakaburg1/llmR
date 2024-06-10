@@ -429,7 +429,7 @@ use_azure_llm <- function(
 #' Use Custom Language Model
 #'
 #' Sends a request to a custom (local or remote) language model endpoint
-#' compatible with the OpenAi API specification, using the parameters in the
+#' compatible with the OpenAI API specification, using the parameters in the
 #' `body` argument. The user can provide an API key if required.
 #'
 #' @param body The body of the request.

@@ -1,3 +1,9 @@
+# llmR 1.0.1
+
+## Setup package for CRAN submission
+
+Small changes to the package to prepare for CRAN submission.
+
 # llmR 1.0.0
 
 ## Enhanced LLM Prompting, Mocking, and Documentation
