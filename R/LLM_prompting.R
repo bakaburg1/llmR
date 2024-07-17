@@ -296,7 +296,9 @@ prompt_llm <- function(
 
       if (!is.null(choice)) {
         message(
-          stringr::str_glue('\nWill follow the option {choice}: "{choices[choice]}"\n'))
+          sprintf(
+            '\nWill follow the option %d: "%s"\n', choice, choices[choice])
+        )
       }
 
       # Otherwise, if interactive and no choice was set in the options, ask the
