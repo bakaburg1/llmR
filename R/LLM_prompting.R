@@ -538,6 +538,15 @@ use_custom_llm <- function(
 #'   message based on the status code.
 #' @param log_request A boolean to log the request time. Can be set up globally
 #'   using the `llmr_log_requests` option, which defaults to TRUE.
+#' @param status The status code of the response. Defaults to 200. It is used to
+#'   simulate errors in the response. The status code can be set globally using
+#'   the `llmr_mock_fun_status` option.
+#' @param retry_after The time to wait before retrying the request when the
+#'   status code is 429 (rate limit error). Defaults to 1 second. It can be set
+#'   globally using the `llmr_mock_fun_retry_after` option.
+#' @param simul_delay The delay in the response to simulate the actual response
+#'   time. Defaults to 0.05 seconds. It can be set globally using the
+#'   `llmr_mock_fun_simul_delay` option.
 #'
 #' @return The function returns the mock response.
 #'
@@ -558,12 +567,16 @@ use_custom_llm <- function(
 use_mock_llm <- function(
     body,
     model = "FakeLLama",
-    response = getOption("llmr_mock_response", "Test successful!"),
-    log_request = getOption("llmr_log_requests", TRUE)
+    response = getOption("llmr_mock_fun_response", "Test successful!"),
+    error_msg = NULL,
+    log_request = getOption("llmr_log_requests", TRUE),
+    status = getOption("llmr_mock_fun_status", 200),
+    retry_after = getOption("llmr_mock_fun_retry_after", 1),
+    simul_delay = getOption("llmr_mock_fun_simul_delay", .05)
 ) {
 
   # Simulate a delay in the response
-  Sys.sleep(.1)
+  Sys.sleep(simul_delay)
 
   if (log_request) {
     message("Interrogating MockLLM: ", model, "...")
@@ -584,10 +597,46 @@ use_mock_llm <- function(
     )
   )
 
+  # Add error message if present
+  if (!is.null(error_msg)) {
+    if (is.list(error_msg)) {
+      response_content$error = error_msg
+    } else {
+      response_content$error = list(message = error_msg)
+    }
+  }
+
+  headers <- list("Content-Type" = "application/json")
+
+  if (status == 429) {
+    message("Simulating error: 429")
+    headers$`retry-after` = retry_after
+
+    if (is.null(response_content$error)) {
+      response_content$error = list(message = "Mock rate limit error.")
+    }
+  }
+
+  if (status == 400) {
+    message("Simulating error: 400")
+
+    if (is.null(response_content$error)) {
+      response_content$error = list(message = "Mock general error.")
+    }
+  }
+
+  if (status == 500) {
+    message("Simulating error: 500")
+
+    if (is.null(response_content$error)) {
+      response_content$error = list(message = "Mock server error.")
+    }
+  }
+
   response <- list(
     url = "http://www.fakellama.com",
-    status_code = 200L,  # Ensure status_code is integer
-    headers = list("Content-Type" = "application/json"),
+    status_code = as.integer(status),  # Ensure status_code is integer
+    headers = headers,
     content = charToRaw(
       jsonlite::toJSON(
         response_content, auto_unbox = TRUE))  # Encode content as raw vector
