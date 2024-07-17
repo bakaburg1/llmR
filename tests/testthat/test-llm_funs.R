@@ -92,7 +92,7 @@ withr::with_options(test_options, {
   # })
 
   test_that("use_gemini_llm sends request and handles response", {
-    # Mock successful response
+    # Mock successful response in Gemini API format
     successful_response <- list(
       candidates = list(list(
         content = list(
@@ -109,7 +109,7 @@ withr::with_options(test_options, {
       )
     )
 
-    # Mock RECITATION response
+    # Mock RECITATION response in Gemini API format
     recitation_response <- list(
       candidates = list(list(
         content = list(
@@ -133,25 +133,19 @@ withr::with_options(test_options, {
     mock_post <- function(...) {
       call_count <<- call_count + 1
       if (call_count == 1) {
-        # First call returns RECITATION
-        resp <- list(
-          url = "example.com",
-          status_code = 200L,
-          headers = list(`Content-Type` = "application/json"),
-          content = jsonlite::toJSON(recitation_response, auto_unbox = TRUE)
-        )
-
-        class(resp) <- "response"
-        return(resp)
+        content <- jsonlite::toJSON(recitation_response, auto_unbox = TRUE)
       } else {
-        # Subsequent call returns successful response
-        resp <- list(
-          url = "https://example.com",
-          status_code = 200L,
-          headers = list(`Content-Type` = "application/json"),
-          content = jsonlite::toJSON(successful_response, auto_unbox = TRUE)
-        )
+        content <- jsonlite::toJSON(successful_response, auto_unbox = TRUE)
       }
+
+      resp <- list(
+        url = "https://example.com",
+        status_code = 200L,
+        headers = list(`Content-Type` = "application/json"),
+        content = charToRaw(content)
+      )
+      class(resp) <- "response"
+      return(resp)
     }
 
     with_mocked_bindings(
@@ -170,8 +164,14 @@ withr::with_options(test_options, {
         # Parse the content
         parsed_content <- jsonlite::fromJSON(rawToChar(result$content))
 
-        # Check the transformed response structure
-        expect_equal(parsed_content$choices[[1]]$message$content, "Gemini Mock Response")
+        # Check the response structure
+        expect_true("choices" %in% names(parsed_content))
+        expect_true("message" %in% names(parsed_content$choices))
+        expect_true("content" %in% names(parsed_content$choices$message))
+        expect_equal(parsed_content$choices$message$content, "Gemini Mock Response")
+        expect_equal(parsed_content$choices$finish_reason, "STOP")
+
+        # Check usage information
         expect_equal(parsed_content$usage$prompt_tokens, 10)
         expect_equal(parsed_content$usage$completion_tokens, 20)
         expect_equal(parsed_content$usage$total_tokens, 30)
