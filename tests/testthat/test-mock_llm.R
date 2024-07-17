@@ -28,7 +28,7 @@ test_that("use_mock_llm respects global mock response option", {
   body <- list(messages = list(list(role = "user", content = "Hello")))
 
   test_options <- list(
-    llmr_mock_response = "Global test successful!"
+    llmr_mock_fun_response = "Global test successful!"
   )
 
   withr::with_options(test_options, {

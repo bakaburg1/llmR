@@ -7,8 +7,12 @@
 use_mock_llm(
   body,
   model = "FakeLLama",
-  response = getOption("llmr_mock_response", "Test successful!"),
-  log_request = getOption("llmr_log_requests", TRUE)
+  response = getOption("llmr_mock_fun_response", "Test successful!"),
+  error_msg = NULL,
+  log_request = getOption("llmr_log_requests", TRUE),
+  status = getOption("llmr_mock_fun_status", 200),
+  retry_after = getOption("llmr_mock_fun_retry_after", 1),
+  simul_delay = getOption("llmr_mock_fun_simul_delay", 0.05)
 )
 }
 \arguments{
@@ -18,10 +22,27 @@ use_mock_llm(
 "FakeLLama" (which obviously doesn't exist).}
 
 \item{response}{The response to be returned by the mock call. The response
-can be set globally using the \code{llmr_mock_response} option.}
+can be set globally using the \code{llmr_mock_fun_response} option.}
+
+\item{error_msg}{An error message to be returned in the response. It can be a
+string or a list. If it is a string, it is converted to a list with the
+message key. If not provided, the function generates a default error
+message based on the status code.}
 
 \item{log_request}{A boolean to log the request time. Can be set up globally
 using the \code{llmr_log_requests} option, which defaults to TRUE.}
+
+\item{status}{The status code of the response. Defaults to 200. It is used to
+simulate errors in the response. The status code can be set globally using
+the \code{llmr_mock_fun_status} option.}
+
+\item{retry_after}{The time to wait before retrying the request when the
+status code is 429 (rate limit error). Defaults to 1 second. It can be set
+globally using the \code{llmr_mock_fun_retry_after} option.}
+
+\item{simul_delay}{The delay in the response to simulate the actual response
+time. Defaults to 0.05 seconds. It can be set globally using the
+\code{llmr_mock_fun_simul_delay} option.}
 }
 \value{
 The function returns the mock response.
