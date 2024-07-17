@@ -268,6 +268,8 @@ prompt_llm <- function(
     if (ans$finish_reason == "length") {
       i <- if (length(parsed$choices) > 1) paste0(" ", i, " ") else " "
 
+      opt_name <- Sys.time()
+
       message(
         "\nAnswer", i, "exhausted the context window!\n",
         "The incomplete answer has been saved as: ", opt_name,
