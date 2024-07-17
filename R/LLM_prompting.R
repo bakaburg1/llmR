@@ -520,6 +520,140 @@ use_custom_llm <- function(
 
 }
 
+#' Use Google Gemini Language Model
+#'
+#' Sends a request to the Google Gemini API using the parameters in the `body`
+#' argument. It requires an API key set in the R options. Internally, the body
+#' and the output are transformed to be compatible with the OpenAI API. Users
+#' would not typically call this function directly, but rather use the
+#' `prompt_llm` function.
+#'
+#' @param body The body of the request.
+#' @param model Model identifier for the Google Gemini API. Obtained from R
+#'   options.
+#' @param api_key API key for the Google Gemini service. Obtained from R
+#'   options.
+#' @param log_request A boolean to log the request time. Can be set up globally
+#'   using the `llmr_log_requests` option, which defaults to TRUE.
+#'
+#' @return The function returns the response from the Google Gemini API.
+#'
+#' @export
+use_gemini_llm <- function(
+    body,
+    model = getOption("llmr_model"),
+    api_key = getOption("llmr_api_key"),
+    log_request = getOption("llmr_log_requests", TRUE)
+) {
+
+  if (is.null(api_key) || is.null(model)) {
+    stop("Google Gemini model or API key are not set. ",
+         "Use the following options to set them:\n",
+         "llmr_model, ",
+         "llmr_api_key options.")
+  }
+
+  if (log_request) {
+    message("Interrogating Google Gemini: ", model, "...")
+  }
+
+  url <- paste0("https://generativelanguage.googleapis.com/v1beta/models/", model, ":generateContent?key=", api_key)
+
+  # Extract system instruction if present
+  system_instruction <- NULL
+  other_messages <- list()
+
+  for (msg in body$messages) {
+    if (msg$role == "system") {
+      system_instruction <- msg$content
+    } else {
+      role <- if (msg$role == "assistant") "model" else msg$role
+      other_messages <- append(other_messages, list(list(
+        role = role,
+        parts = list(text = msg$content)
+      )))
+    }
+  }
+
+  # Prepare the body of the request
+  formatted_body <- list(
+    contents = other_messages
+  )
+
+  # Add system instruction if present
+  if (!is.null(system_instruction)) {
+    formatted_body$system_instruction <- list(
+      parts = list(text = system_instruction)
+    )
+  }
+
+  # Check if the response should be in JSON format
+  force_json <- !purrr::pluck(
+    body, "response_format", "type", .default = FALSE) %in% FALSE
+
+  # Add parameters to the body if present
+  formatted_body$generation_config <- list(
+    temperature = body$temperature,
+    maxOutputTokens = body$max_tokens,
+    topP = body$top_p,
+    topK = body$top_k,
+    #candidateCount = body$params$n, # Not supported yet, produces empty answer
+    response_mime_type = if (force_json) "application/json" else NULL
+  ) |> purrr::compact()
+
+  # Prepare the request
+  trial <- 1
+  while (trial < 4) {
+    response <- httr::POST(
+      url = url,
+      httr::add_headers(
+        `Content-Type` = "application/json"
+      ),
+      body = jsonlite::toJSON(formatted_body, auto_unbox = TRUE),
+      encode = "json"
+    )
+
+    # Check for errors in response
+    stop_on_response_error(response)
+
+    # Parse and adjust the response format to be compatible with prompt_llm
+    parsed_response <- httr::content(
+      response, as = "parsed", encoding = "UTF-8")
+
+    if (parsed_response$candidates[[1]]$finishReason != "RECITATION") {
+      break
+    }
+
+    trial <- trial + 1
+    message("Failed due to RECITATION. Attempt ", trial, " of 4.")
+  }
+
+  metadata <- parsed_response$usageMetadata
+
+  adjusted_response <- list(
+    choices = lapply(parsed_response$candidates, function(candidate) {
+      list(
+        message = list(
+          content = candidate$content$parts[[1]]$text
+        ),
+        finish_reason = candidate$finishReason
+      )
+    }),
+    usage = list(
+      prompt_tokens = metadata$promptTokenCount,
+      completion_tokens = metadata$candidatesTokenCount,
+      total_tokens = metadata$totalTokenCount
+    )
+  )
+
+  # Transform the adjusted response back into an httr response object
+  response$content <- charToRaw(
+    jsonlite::toJSON(adjusted_response, auto_unbox = TRUE))
+
+  response
+}
+
+
 #' Mock Language Model call for testing
 #'
 #' This function mocks a call to a language model provider and returns a
