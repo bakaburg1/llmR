@@ -6,9 +6,9 @@
 \usage{
 use_azure_llm(
   body,
-  deployment_id = getOption("llmr_azure_deployment_gpt"),
-  resource_name = getOption("llmr_azure_resource_gpt"),
-  api_key = getOption("llmr_azure_api_key_gpt"),
+  deployment_id = getOption("llmr_azure_gpt_deployment"),
+  resource_name = getOption("llmr_azure_gpt_resource"),
+  api_key = getOption("llmr_api_key"),
   api_version = getOption("llmr_azure_api_version"),
   log_request = getOption("llmr_log_requests", TRUE)
 )
@@ -37,5 +37,6 @@ The function returns the response from the Azure API.
 Sends a request to the Azure API for language model completions using the
 parameters in the \code{body} argument. This function requires specific Azure
 configurations (deployment ID, resource name, API key, and API version) set
-in the R options.
+in the R options. Users would not typically call this function directly, but
+rather use the \code{prompt_llm} function.
 }

@@ -6,8 +6,8 @@
 \usage{
 use_openai_llm(
   body,
-  model = getOption("llmr_openai_model_gpt"),
-  api_key = getOption("llmr_openai_api_key"),
+  model = getOption("llmr_model"),
+  api_key = getOption("llmr_api_key"),
   log_request = getOption("llmr_log_requests", TRUE)
 )
 }
@@ -27,4 +27,6 @@ The function returns the response from the OpenAI API.
 \description{
 Sends a request to the OpenAI API using the parameters in the \code{body}
 argument. It requires an API key and model identifier set in the R options.
+Users would not typically call this function directly, but rather use the
+\code{prompt_llm} function.
 }
