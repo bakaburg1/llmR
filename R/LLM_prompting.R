@@ -165,7 +165,9 @@ prompt_llm <- function(
     ),
     force_json = FALSE,
     log_request = getOption("llmr_log_requests", TRUE),
-    ...) {
+    session_id = getOption("llmr_session_id", NULL),
+    ...
+) {
 
   messages <- process_messages(messages)
 
@@ -262,7 +264,7 @@ prompt_llm <- function(
   }
 
   # Return the response
-  purrr::imap_chr(parsed$choices, \(ans, i) {
+  llm_answer <- purrr::imap_chr(parsed$choices, \(ans, i) {
     ans_content <- ans$message$content
 
     # Manage the case when the answer is cut off due to exceeding the
@@ -317,6 +319,19 @@ prompt_llm <- function(
       }
     } else ans_content
   })
+
+  # Store the interaction in the session history
+  store_llm_session_data(
+    messages = messages,
+    response = llm_answer,
+    usage = parsed$usage,
+    processing_time = elapsed,
+    provider = provider,
+    model = list(...)$model,
+    session_id = session_id
+  )
+
+  llm_answer
 }
 
 #' Use OpenAI Language Model
