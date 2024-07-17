@@ -29,18 +29,23 @@ mock_llm_success <- function(body, ...) {
   ))
 }
 
-mock_llm_rate_limit <- function(body, ...) {
-  create_mock_response(429, list(), list(`retry-after` = "1"))
+mock_llm_rate_limit <- function(body, retry_after = "1", ...) {
+  body <- charToRaw(
+    jsonlite::toJSON(
+      body, auto_unbox = TRUE))
+
+  create_mock_response(429, body, list(
+    `retry-after` = retry_after,
+    error = list(message = "Mocked error message")
+    ))
 }
 
 mock_llm_error <- function(body, ...) {
-  create_mock_response(400, list(error = list(message = "Error message")))
+  create_mock_response(400, list(error = list(message = "Mocked error message")))
 }
 
 mock_httr_post <- function(content) {
   function(...) {
-    response <- create_mock_response(200, content)
-    class(response) <- "response"
-    response
+    response <- use_mock_llm(200, response = content)
   }
 }
