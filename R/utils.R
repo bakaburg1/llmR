@@ -1,3 +1,18 @@
+#' Format a difftime object as a string
+#'
+#' Formats a difftime object as a string with a specified precision.
+#'
+#' @param td A difftime object.
+#' @param precision The number of significant digits to include in the output.
+#'
+#' @return A string representation of the difftime object.
+#'
+format_timediff <- function(td, precision = 3) {
+  if (!inherits(td, "difftime")) stop("Input must be a difftime object.")
+
+  paste(signif(unclass(td), precision), units(td))
+}
+
 #' Set the LLM session ID
 #'
 #' Set the session ID to store the data from the interaction with a language

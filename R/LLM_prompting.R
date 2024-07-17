@@ -177,14 +177,13 @@ prompt_llm <- function(
          "llmr_llm_provider.")
   }
 
-  if (log_request) {
-    check_and_install_dependencies("tictoc")
+  # Set default temperature if not provided
+  if (!"temperature" %in% names(params)) {
+    params$temperature <- 0
   }
 
   # Prepare the body of the request and merge with default
-  body <- purrr::list_modify(list(
-    temperature = 0
-  ), !!!params)
+  body <- params
 
   body$messages <- messages
 
@@ -211,52 +210,41 @@ prompt_llm <- function(
     #message("Sending message to Azure GPT API.")
     retry <- FALSE
 
-    if (log_request) tictoc::tic()
+    gen_start <- Sys.time()
     response <- llm_fun(body, ...)
-    if (log_request) elapsed <- tictoc::toc()
+    gen_stop <- Sys.time()
 
-    if (httr::status_code(response) == 429) {
-      warning("Rate limit exceeded. Waiting before retrying.",
-              immediate. = TRUE, call. = FALSE)
+    # Compute the time taken for the request to be processed
+    elapsed <- difftime(gen_stop, gen_start)
 
-      if (log_request) {
-        message(httr::content(response)$error$message)
-      }
-
-      to_wait <- as.numeric(httr::headers(response)$`retry-after`)
-
-      message("Waiting for ", to_wait, " seconds.\n...")
-      Sys.sleep(to_wait)
-      message("Retrying...")
-      retry <- TRUE
-    }
+    # Check if the query rate limit has been exceeded and wait for the time
+    # specified in the response error message
+    retry <- is_rate_limit_exceeded(response, log_request = log_request)
   }
 
   # Check for errors in response
-  if (httr::http_error(response)) {
-    err_obj <- httr::content(response)$error
-
-    err_message <- if (is.character(err_obj)) {
-      err_obj
-    } else if (is.character(err_obj$message)) {
-      err_obj$message
-    } else {
-      httr::content(response)
-    }
-
-    stop("Error in LLM request: ", err_message)
-  }
+  stop_on_response_error(response)
 
   # Return the response
   parsed <- httr::content(response, as = "parsed", encoding = "UTF-8")
 
+  # Raise an error if no tokens were generated
+  stop_on_no_output(parsed)
+
   if (log_request) {
+    if (force_json) {
+      params$response_format <- "JSON"
+    }
+
+    # Log information about the generated response
     with(parsed$usage,
          paste(
-           "Prompt tokens:", prompt_tokens,
+           "Params:", jsonlite::toJSON(params, auto_unbox = T),
+           "\nGeneration time:", format_timediff(elapsed),
+           "\nPrompt tokens:", prompt_tokens,
            "\nResponse tokens:", completion_tokens,
            "\nGeneration speed:", paste(
-             signif(completion_tokens/(elapsed$toc - elapsed$tic), 3), "t/s"),
+             signif(completion_tokens/as.numeric(elapsed, "secs"), 3), "t/s"),
            "\nTotal tokens:", total_tokens
          )
     ) |> message()

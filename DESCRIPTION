@@ -19,6 +19,5 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.1
 Suggests: 
     testthat (>= 3.0.0),
-    tictoc (>= 1.0),
     withr
 Config/testthat/edition: 3
