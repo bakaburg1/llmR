@@ -10,14 +10,20 @@ prompt_llm(
   params = list(temperature = 0),
   force_json = FALSE,
   log_request = getOption("llmr_log_requests", TRUE),
+  session_id = getOption("llmr_session_id", NULL),
   ...
 )
 }
 \arguments{
 \item{messages}{Messages to be sent to the language model.}
 
-\item{provider}{The provider of the language model. Defaults to "openai".
-Other options are "azure" and "local".}
+\item{provider}{The provider of the language model. Maps to a specific
+function with the pattern "use_\if{html}{\out{<provider>}}_llm. Default is set up globally
+using the \code{llmr_llm_provider} option. The package implements interfaces for
+models respecting the OpenAI (\code{openai}), Azure (\code{azure}), and Google Gemini
+(\code{gemini}) API specifications plus a general interface for custom models
+(\code{custom}) which implement the OpenAI API specification; see
+\verb{use_<provider>_llm} functions.}
 
 \item{params}{Additional parameters for the language model request. Defaults
 to a list with \code{temperature = 0}.}
@@ -27,6 +33,11 @@ FALSE. Works only for OpenAI and Azure endpoints.}
 
 \item{log_request}{A boolean to log the request time. Can be set up globally
 using the \code{llmr_log_requests} option, which defaults to TRUE.}
+
+\item{session_id}{The LLM session ID to store the data under. NOTE: this ID
+is not used to continue a conversation keeping memory of the previous
+interactions with the LLM, but it's just to keep a copy of the conversation
+for review and post-processing.}
 
 \item{...}{Additional arguments passed to the language model provider
 functions.}

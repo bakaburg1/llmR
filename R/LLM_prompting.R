@@ -135,14 +135,23 @@ process_messages <- function(messages) {
 #' ::: operator for examples.
 #'
 #' @param messages Messages to be sent to the language model.
-#' @param provider The provider of the language model. Defaults to "openai".
-#'   Other options are "azure" and "local".
+#' @param provider The provider of the language model. Maps to a specific
+#'   function with the pattern "use_<provider>_llm. Default is set up globally
+#'   using the `llmr_llm_provider` option. The package implements interfaces for
+#'   models respecting the OpenAI (`openai`), Azure (`azure`), and Google Gemini
+#'   (`gemini`) API specifications plus a general interface for custom models
+#'   (`custom`) which implement the OpenAI API specification; see
+#'   `use_<provider>_llm` functions.
 #' @param params Additional parameters for the language model request. Defaults
 #'   to a list with `temperature = 0`.
 #' @param force_json A boolean to force the response in JSON format. Default is
 #'   FALSE. Works only for OpenAI and Azure endpoints.
 #' @param log_request A boolean to log the request time. Can be set up globally
 #'   using the `llmr_log_requests` option, which defaults to TRUE.
+#' @param session_id The LLM session ID to store the data under. NOTE: this ID
+#'   is not used to continue a conversation keeping memory of the previous
+#'   interactions with the LLM, but it's just to keep a copy of the conversation
+#'   for review and post-processing.
 #' @param ... Additional arguments passed to the language model provider
 #'   functions.
 #'
@@ -196,8 +205,8 @@ prompt_llm <- function(
   llm_fun <- paste0("use_", provider, "_llm")
 
   if (!exists(llm_fun, mode = "function")) {
-    stop("Unsupported LLM provider.
-         You can set it project-wide using the llmr_llm_provider option.")
+    stop("Unsupported LLM provider: ", provider,
+         "\nYou can set it project-wide using the llmr_llm_provider option.")
   }
 
   llm_fun <- get(llm_fun)
@@ -207,7 +216,6 @@ prompt_llm <- function(
 
   while(!exists("response", inherits = FALSE) || retry) {
 
-    #message("Sending message to Azure GPT API.")
     retry <- FALSE
 
     gen_start <- Sys.time()
@@ -275,8 +283,8 @@ prompt_llm <- function(
       choice <- getOption("llmr_continue_on_incomplete", NULL)
 
       choices <- c(
-          "Try to complete the answer",
-          "Keep the incomplete answer",
+        "Try to complete the answer",
+        "Keep the incomplete answer",
         "Stop the process"
       )
 
@@ -296,7 +304,7 @@ prompt_llm <- function(
       if (interactive() && is.null(choice)) {
         choice <- utils::menu(choices,
           title = "How do you want to proceed?"
-      )
+        )
       }
 
       if (choice == 1) {
