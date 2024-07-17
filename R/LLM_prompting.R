@@ -260,24 +260,44 @@ prompt_llm <- function(
     if (ans$finish_reason == "length") {
       i <- if (length(parsed$choices) > 1) paste0(" ", i, " ") else " "
 
-      warning("Answer", i, "exhausted the context window!")
-
-      file_name <- paste0("output_", Sys.time(), ".txt")
-
-      warning(
-        "Answer", i, "exhausted the context window!\n",
-        "The answer has been saved to a file: ", file_name
+      message(
+        "\nAnswer", i, "exhausted the context window!\n",
+        "The incomplete answer has been saved as: ", opt_name,
+        "in the `llmr_incomplete_answers` option object.\n",
       )
 
-      writeLines(ans_content, file_name)
+      # Store the incomplete answer in the option object
+      incomplete_ans_list <- getOption("llmr_incomplete_answers", list())
+      incomplete_ans_list[opt_name] <- ans_content
+      options(llmr_incomplete_answers = incomplete_ans_list)
 
-      choice <- utils::menu(
-        c(
+      # Collect the user's choice on how to proceed from the options
+      choice <- getOption("llmr_continue_on_incomplete", NULL)
+
+      choices <- c(
           "Try to complete the answer",
           "Keep the incomplete answer",
-          "Stop the process"),
-        title = "How do you want to proceed?"
+        "Stop the process"
       )
+
+      # Default to complete the answer if not interactive and no choice was set
+      # in the options
+      if (!interactive() && is.null(choice)) {
+        choice <- 1
+      }
+
+      if (!is.null(choice)) {
+        message(
+          stringr::str_glue('\nWill follow the option {choice}: "{choices[choice]}"\n'))
+      }
+
+      # Otherwise, if interactive and no choice was set in the options, ask the
+      # user how to proceed
+      if (interactive() && is.null(choice)) {
+        choice <- utils::menu(choices,
+          title = "How do you want to proceed?"
+      )
+      }
 
       if (choice == 1) {
         # Ask the model to continue the answer
@@ -294,10 +314,16 @@ prompt_llm <- function(
         )
 
         ans_new <- prompt_llm(
-          messages_new, provider = provider, params = params,
+          messages_new,
           force_json = FALSE,
-          log_request = log_request, ...
+          params = params,
+          log_request = log_request,
+          session_id = session_id,
+          provider = provider,
+          ...
         )
+
+        # TODO: how to manage the session history in these cases?
 
         return(paste0(ans_content, ans_new))
       } else if (choice == 2) {
