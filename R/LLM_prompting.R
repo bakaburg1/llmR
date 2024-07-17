@@ -352,6 +352,8 @@ prompt_llm <- function(
 #'
 #' Sends a request to the OpenAI API using the parameters in the `body`
 #' argument. It requires an API key and model identifier set in the R options.
+#' Users would not typically call this function directly, but rather use the
+#' `prompt_llm` function.
 #'
 #' @param body The body of the request.
 #' @param model Model identifier for the OpenAI API. Obtained from R options.
@@ -361,18 +363,19 @@ prompt_llm <- function(
 #'
 #' @return The function returns the response from the OpenAI API.
 #'
+#' @export
 use_openai_llm <- function(
     body,
-    model = getOption("llmr_openai_model_gpt"),
-    api_key = getOption("llmr_openai_api_key"),
+    model = getOption("llmr_model"),
+    api_key = getOption("llmr_api_key"),
     log_request = getOption("llmr_log_requests", TRUE)
 ) {
 
   if (is.null(api_key) || is.null(model)) {
     stop("OpenAI GPT model or API key are not set. ",
          "Use the following options to set them:\n",
-         "llmr_openai_model_gpt, ",
-         "llmr_open_api_key options.")
+         "llmr_model, ",
+         "llmr_api_key options.")
   }
 
   if (log_request) {
@@ -399,7 +402,8 @@ use_openai_llm <- function(
 #' Sends a request to the Azure API for language model completions using the
 #' parameters in the `body` argument. This function requires specific Azure
 #' configurations (deployment ID, resource name, API key, and API version) set
-#' in the R options.
+#' in the R options. Users would not typically call this function directly, but
+#' rather use the `prompt_llm` function.
 #'
 #' @param body The body of the request.
 #' @param deployment_id Azure deployment ID for the language model. Obtained
@@ -413,11 +417,13 @@ use_openai_llm <- function(
 #'   using the `llmr_log_requests` option, which defaults to TRUE.
 #'
 #' @return The function returns the response from the Azure API.
+#'
+#' @export
 use_azure_llm <- function(
     body,
-    deployment_id = getOption("llmr_azure_deployment_gpt"),
-    resource_name = getOption("llmr_azure_resource_gpt"),
-    api_key = getOption("llmr_azure_api_key_gpt"),
+    deployment_id = getOption("llmr_azure_gpt_deployment"),
+    resource_name = getOption("llmr_azure_gpt_resource"),
+    api_key = getOption("llmr_api_key"),
     api_version = getOption("llmr_azure_api_version"),
     log_request = getOption("llmr_log_requests", TRUE)
 ) {
@@ -427,9 +433,9 @@ use_azure_llm <- function(
     stop("Azure GPT resource name, deployment name, ",
          "API key, or API version are not set. ",
          "Use the following options to set them:\n",
-         "llmr_azure_deployment_gpt, ",
-         "llmr_azure_resource_gpt, ",
-         "llmr_azure_api_key_gpt, ",
+         "llmr_azure_gpt_deployment, ",
+         "llmr_azure_gpt_resource, ",
+         "llmr_api_key, ",
          "llmr_azure_api_version."
     )
   }
@@ -459,32 +465,37 @@ use_azure_llm <- function(
 #'
 #' Sends a request to a custom (local or remote) language model endpoint
 #' compatible with the OpenAI API specification, using the parameters in the
-#' `body` argument. The user can provide an API key if required.
+#' `body` argument. The user can provide an API key if required. Users would not
+#' typically call this function directly, but rather use the `prompt_llm`
+#' function.
 #'
 #' @param body The body of the request.
-#' @param endpoint The local endpoint for the language model service. Can be
-#'   obtained from R options.
+#' @param endpoint The local endpoint for the language model service. Can be set
+#'   up globally using the `llmr_endpoint` option.
 #' @param model Model identifier for the custom API, if needed (some API have
-#'   one model per endpoint, some multiple ones). Obtained from R options.
+#'   one model per endpoint, some multiple ones). Can be set up globally using
+#'   the `llmr_model` option.
 #' @param api_key Optional API key for the custom language model services that
-#'   require it. Obtained from R options.
+#'   require it. Can be set up globally using the `llmr_api_key` option.
 #' @param log_request A boolean to log the request time. Can be set up globally
-#'   using the `llmr_log_requests` option, which defaults to TRUE.
+#'   using the `llmr_log_requests` option, which defaults to `TRUE`.
 #'
 #' @return The function returns the response from the local language model
 #'   endpoint.
+#'
+#' @export
 use_custom_llm <- function(
     body,
-    endpoint = getOption("llmr_custom_endpoint_gpt"),
-    model = getOption("llmr_custom_model_gpt", NULL),
-    api_key = getOption("llmr_custom_api_key"),
+    endpoint = getOption("llmr_endpoint"),
+    model = getOption("llmr_model"),
+    api_key = getOption("llmr_api_key"),
     log_request = getOption("llmr_log_requests", TRUE)
 ) {
 
   if (is.null(endpoint)) {
     stop("Local endpoint is not set. ",
          "Use the following options to set it:\n",
-         "llmr_custom_endpoint_gpt"
+         "llmr_endpoint"
     )
   }
 
@@ -520,7 +531,11 @@ use_custom_llm <- function(
 #' @param model The model identifier for the mock response. Defaults to
 #'   "FakeLLama" (which obviously doesn't exist).
 #' @param response The response to be returned by the mock call. The response
-#'   can be set globally using the `llmr_mock_response` option.
+#'   can be set globally using the `llmr_mock_fun_response` option.
+#' @param error_msg An error message to be returned in the response. It can be a
+#'   string or a list. If it is a string, it is converted to a list with the
+#'   message key. If not provided, the function generates a default error
+#'   message based on the status code.
 #' @param log_request A boolean to log the request time. Can be set up globally
 #'   using the `llmr_log_requests` option, which defaults to TRUE.
 #'
