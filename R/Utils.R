@@ -66,9 +66,8 @@ store_llm_session_data <- function(
 ) {
 
   # If no session ID exist yet, generate a new one
-  if (is.null(session_id)) {
-    session_id <- set_session_id()
-  }
+  # Ensure a session ID exists
+  session_id <- session_id %||% set_session_id()
 
   # Extract the number of tokens generated and the input tokens
   input_tokens <- usage$prompt_tokens
@@ -170,7 +169,19 @@ remove_session_data <- function(id = NULL) {
   if (is.null(id)) {
     options(llmr_session_data = list())
   } else {
-    llmr_session_data <- getOption("llmr_session_data", list())
+    llmr_session_data <- get_session_data()
+
+    if (length(llmr_session_data) == 0) {
+      warning("No session history is present yet")
+      return()
+    }
+    
+    if (!(id %in% names(llmr_session_data))) {
+      warning("Session ID not present in session history.",
+      call. = FALSE, immediate. = TRUE)
+      return()
+    }
+    
     llmr_session_data[id] <- NULL
     options(llmr_session_data = llmr_session_data)
   }
