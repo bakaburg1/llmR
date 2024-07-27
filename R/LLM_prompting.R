@@ -148,10 +148,11 @@ process_messages <- function(messages) {
 #'   FALSE. Works only for OpenAI and Azure endpoints.
 #' @param log_request A boolean to log the request time. Can be set up globally
 #'   using the `llmr_log_requests` option, which defaults to TRUE.
-#' @param session_id The LLM session ID to store the data under. NOTE: this ID
-#'   is not used to continue a conversation keeping memory of the previous
-#'   interactions with the LLM, but it's just to keep a copy of the conversation
-#'   for review and post-processing.
+#' @param session_id The LLM session ID to store the data under. If not set
+#'   already globally, a new one will be created. NOTE: this ID is not used to
+#'   continue a conversation keeping memory of the previous interactions with
+#'   the LLM, but it's just to keep a copy of the conversation for review and
+#'   post-processing.
 #' @param ... Additional arguments passed to the language model provider
 #'   functions.
 #'
@@ -174,7 +175,7 @@ prompt_llm <- function(
     ),
     force_json = FALSE,
     log_request = getOption("llmr_log_requests", TRUE),
-    session_id = getOption("llmr_session_id", NULL),
+    session_id = get_session_id() %||% set_session_id(),
     ...
 ) {
 
@@ -357,7 +358,7 @@ prompt_llm <- function(
     usage = parsed$usage,
     processing_time = elapsed,
     provider = provider,
-    model = list(...)$model,
+    model = list(...)$model %||% getOption("llmr_model"),
     session_id = session_id
   )
 
