@@ -1,8 +1,11 @@
 # tests/testthat/test-prompt_llm.R
 
+opts <- options()
+
 set_session_id("test")
+
 on.exit({
-  remove_session_data("test")
+  options(opts)
 })
 
 test_that("prompt_llm sends messages and handles responses", {
@@ -13,8 +16,6 @@ test_that("prompt_llm sends messages and handles responses", {
 
 test_that("prompt_llm handles rate limiting warning", {
 
-  opts <- options()
-  on.exit(options(opts))
   options(
     llmr_mock_fun_status = 429,
     llmr_mock_fun_retry_after = 0.05,
@@ -24,6 +25,8 @@ test_that("prompt_llm handles rate limiting warning", {
   )
 
   res <- purrr::quietly(purrr::safely(prompt_llm))("Hello", provider = "mock")
+
+  options(opts)
 
   # Test if "llmr_attempt_number" got reset on error
   expect_equal(
@@ -42,8 +45,6 @@ test_that("prompt_llm handles rate limiting warning", {
 
 test_that("prompt_llm handles errors in response", {
 
-  opts <- options()
-  on.exit(options(opts))
   options(
     llmr_mock_fun_status = 400
   )
@@ -51,11 +52,12 @@ test_that("prompt_llm handles errors in response", {
   expect_error(
     prompt_llm("Test", provider = "mock"),
     "Error in LLM request: Mock general error")
+
+  options(opts)
 })
 
 test_that("prompt_llm handles missing provider", {
-  opts <- options()
-  on.exit(options(opts))
+
   options(
     llmr_llm_provider = NULL
   )
@@ -64,12 +66,12 @@ test_that("prompt_llm handles missing provider", {
     prompt_llm(messages = c(user = "Hello")),
     "Language model provider is not set.")
 
+  options(opts)
 })
 
 # Integration test: Combine process_messages and prompt_llm
 test_that("process_messages and prompt_llm integration", {
-  opts <- options()
-  on.exit(options(opts))
+
   options(
     llmr_mock_fun_status = 200
   )
@@ -77,7 +79,8 @@ test_that("process_messages and prompt_llm integration", {
   raw_messages <- c(user = "Hello")
   processed_messages <- process_messages(raw_messages)
   result <- prompt_llm(messages = processed_messages, provider = "mock")
+
+  options(opts)
+
   expect_equal(result, "Test successful!")
 })
-
-remove_session_data("test")
