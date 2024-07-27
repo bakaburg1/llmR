@@ -288,27 +288,7 @@ sanitize_json_output <- function(x) {
   # Remove backslashes before quotes
   x <- gsub("\\\\(?=\")", "", x, perl = TRUE)
   
-  # Add proper indentation
-  x <- gsub("(\\{|\\}|,)", "\\1\n", x)
-  x <- gsub("\":\"", "\": \"", x)
-  x <- gsub("\\}\\s*$", "}\n", x)
-  
-  # Apply indentation
-  lines <- strsplit(x, "\n")[[1]]
-  indent <- 0
-  result <- character(length(lines))
-  for (i in seq_along(lines)) {
-    if (grepl("\\}", lines[i])) {
-      indent <- indent - 1
-    }
-    result[i] <- paste0(strrep("  ", indent), trimws(lines[i]))
-    if (grepl("\\{", lines[i])) {
-      indent <- indent + 1
-    }
-  }
-  x <- paste(result, collapse = "\n")
-  
-  # Apply existing sanitization steps
+  # Apply sanitization steps
   x <- gsub("\\n+", "\n", x)
   x <- gsub("\\s+", " ", x)
   x <- gsub(
