@@ -186,3 +186,93 @@ remove_session_data <- function(id = NULL) {
     options(llmr_session_data = llmr_session_data)
   }
 }
+
+#' Store LLM model specifications
+#'
+#' Store the specifications for a language model in the global options.
+#'
+#' @param provider The provider name under which to store the model
+#'   specifications.
+#' @param api_type The type of API used by the provider (custom, openai, azure,
+#'   or gemini).
+#' @param endpoint The API endpoint to use for the provider.
+#' @param api_key The API key to use for the provider.
+#' @param model The default model to use for the provider. Some providers may
+#'   accept only one model, while others do not require a model to be specified.
+#' @param api_version The version of the API to use (only for "azure" api types
+#'   for now)
+#'
+#' @return NULL
+#'
+#' @export
+record_llmr_model <- function(
+  provider,
+  api_type = c("custom", "openai", "azure", "gemini"),
+  endpoint = NULL,
+  api_key = NULL,
+  model = NULL,
+  api_version = NULL
+) {
+
+  api_type <- match.arg(api_type)
+
+  # Get current stored model specifications
+  cur_specs <- getOption("llmr_stored_models", list())
+
+  # Store model data
+  cur_specs[[provider]] <- mget(
+    c("api_type", "endpoint", "api_key", "model", "api_version")
+  )
+
+  # Store the options
+  options(llmr_stored_models = cur_specs)
+}
+
+#' Set the current LLMR model
+#'
+#' This function allows you to set the current LLMR model to use for subsequent
+#' operations. It retrieves the stored model specifications for the given
+#' provider and updates the global options accordingly.
+#'
+#' @param provider The provider for which to set the current model.
+#' @param model An optional model to override the default model for the
+#'  provider, if any.
+#'
+#' @return Invisibly, the updated global options.
+#'
+#' @export
+set_llmr_model <- function(
+  provider,
+  model = NULL
+) {
+
+  all_models <- getOption("llmr_stored_models", list())
+
+  if (length(all_models) == 0) {
+    warning("No models have been stored yet.",
+            call. = FALSE, immediate. = TRUE)
+    return(invisible())
+  }
+
+  if (!(provider %in% names(all_models))) {
+    warning("No stored model for provider '", provider, "'.",
+            call. = FALSE, immediate. = TRUE)
+    return(invisible())
+  }
+
+  this_model <- all_models[[provider]]
+
+  if (!is.null(model)) {
+    this_model$model <- model
+  }
+
+  # Set current model
+  options(
+    llmr_model = this_model$model,
+    llmr_endpoint = this_model$endpoint,
+    llmr_llm_provider = this_model$api_type,
+    llmr_api_key = this_model$api_key,
+    llmr_api_version = this_model$api_version
+  )
+}
+
