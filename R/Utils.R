@@ -175,13 +175,13 @@ remove_session_data <- function(id = NULL) {
       warning("No session history is present yet")
       return()
     }
-    
+
     if (!(id %in% names(llmr_session_data))) {
-      warning("Session ID not present in session history.",
+      warning("Session ID '", id, "' not present in session history.",
       call. = FALSE, immediate. = TRUE)
       return()
     }
-    
+
     llmr_session_data[id] <- NULL
     options(llmr_session_data = llmr_session_data)
   }
