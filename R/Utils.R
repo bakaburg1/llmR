@@ -276,3 +276,50 @@ set_llmr_model <- function(
   )
 }
 
+sanitize_json_output <- function(x) {
+  before <- x
+  
+  # Remove leading and trailing whitespace
+  x <- trimws(x)
+  
+  # Remove newlines and extra spaces outside of quoted strings
+  x <- gsub("\\s+(?=([^\"]*\"[^\"]*\")*[^\"]*$)", " ", x, perl = TRUE)
+  
+  # Remove backslashes before quotes
+  x <- gsub("\\\\(?=\")", "", x, perl = TRUE)
+  
+  # Add proper indentation
+  x <- gsub("(\\{|\\}|,)", "\\1\n", x)
+  x <- gsub("\":\"", "\": \"", x)
+  x <- gsub("\\}\\s*$", "}\n", x)
+  
+  # Apply indentation
+  lines <- strsplit(x, "\n")[[1]]
+  indent <- 0
+  result <- character(length(lines))
+  for (i in seq_along(lines)) {
+    if (grepl("\\}", lines[i])) {
+      indent <- indent - 1
+    }
+    result[i] <- paste0(strrep("  ", indent), trimws(lines[i]))
+    if (grepl("\\{", lines[i])) {
+      indent <- indent + 1
+    }
+  }
+  x <- paste(result, collapse = "\n")
+  
+  # Apply existing sanitization steps
+  x <- gsub("\\n+", "\n", x)
+  x <- gsub("\\s+", " ", x)
+  x <- gsub(
+    "^```(json)?\\n?", "", x,
+    ignore.case = TRUE)
+  x <- gsub("```\\n*$", "", x)
+  
+  if (before != x) {
+    warning("JSON output needed sanitization!",
+    call. = FALSE, immediate. = FALSE)
+  }
+  
+  x
+}

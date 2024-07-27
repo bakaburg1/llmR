@@ -263,6 +263,10 @@ prompt_llm <- function(
   llm_answer <- purrr::imap_chr(parsed$choices, \(ans, i) {
     ans_content <- ans$message$content
 
+    if (force_json && !jsonlite::validate(ans_content)) {
+      ans_content <- sanitize_json_output(ans_content)
+    }
+
     # Manage the case when the answer is cut off due to exceeding the
     # output token limit
     if (ans$finish_reason == "length") {
