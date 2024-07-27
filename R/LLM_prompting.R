@@ -438,22 +438,22 @@ use_openai_llm <- function(
 #' @export
 use_azure_llm <- function(
     body,
-    deployment_id = getOption("llmr_azure_gpt_deployment"),
-    resource_name = getOption("llmr_azure_gpt_resource"),
+    deployment_id = getOption("llmr_model"),
+    resource_name = getOption("llmr_endpoint"),
     api_key = getOption("llmr_api_key"),
-    api_version = getOption("llmr_azure_api_version"),
+    api_version = getOption("llmr_api_version"),
     log_request = getOption("llmr_log_requests", TRUE)
 ) {
 
   if (is.null(resource_name) || is.null(deployment_id) ||
       is.null(api_key) || is.null(api_version)) {
-    stop("Azure GPT resource name, deployment name, ",
+    stop("Azure GPT deployment name (model), resource name (endpoint), ",
          "API key, or API version are not set. ",
          "Use the following options to set them:\n",
-         "llmr_azure_gpt_deployment, ",
-         "llmr_azure_gpt_resource, ",
+         "llmr_model, ",
+         "llmr_endpoint, ",
          "llmr_api_key, ",
-         "llmr_azure_api_version."
+         "llmr_api_version."
     )
   }
 
