@@ -22,12 +22,13 @@ knitr::opts_chunk$set(
 
 ## Features
 
-- **Unified API**: Interact with different LLM providers using a consistent set of functions.
+- **Unified API**: Setup and easily switch between different LLM providers and models using a consistent set of functions.
 - **Prompt Processing**: Convert chat messages into a standard format suitable for LLMs.
+- **Ourput Processing**: Can request JSON output from the LLMs and tries to sanitize the response if the parsing fails.
 - **Error Handling**: Automatically handle errors and retry requests when rate limits are exceeded. If a response is cut due to token limits, the package will ask the LLM to complete the response.
 - **Custom Providers**: Interrogate custom endpoints (local and online) and allow implementation of ad-hoc LLM connection functions.
 - **Mock Calls**: Allows simulation of LLM interactions for testing purposes.
-- **Logging**: Option to log request times for performance monitoring.
+- **Logging**: Option to log the LLM response details for performance and cost monitoring.
 
 ## Installation
 
@@ -42,17 +43,70 @@ devtools::install_github("bakaburg1/llmR")
 
 ### Setup
 
-Before using `llmR`, you need to set up the necessary API keys and model identifiers for the LLM providers you intend to use. These can be set globally using R options.
+Before using `llmR`, you need to set up your language model providers. You can
+either do this via the following llmR options: 
+
+- "*llmr_llm_provider*": set to "openai", "azure", "gemini" to use models provided by "OpenAI", "Azure OpenAI" or "Google Gemini" respectively (they have different API specifications); otherwise, set to "custom" to use a local or remote LLMs compatible with the "OpenAI" API specification;
+- "*llmr_endpoint*": URL of the model endpoint for the "custom" provider; use the model "resource" URL for "Azure OpenAI" models;
+- "*llmr_model*": model identifier; not all providers need to specify this; use the "deploymentID" for "Azure OpenAI" models;
+- "*llmr_api_key*": API key for the providers that require one.
+- "*llmr_api_version*": required for "Azure OpenAI" models.
+
+Since setting and changing these info can be cumbersome, the package exposes the `record_llmr_model()` function which allow to store the credentials for multiple models in the session options.
+The first argument "provider" is the reference to the stored specification
+
+Users can then use `set_llmr_model(provider, model)` to activate one of the stored models.
+The second argument "model" is optional and allow to use a different model from the one stored in the provider.
+
+A useful tip is to call `record_llmr_model()` in the user `.Rprofile`
+so that the models are immediately available in the session.
+
+These are examples of how to set up LLMs from various providers:
 
 ```r
-library(llmR)
+# In your .Rprofile file. You can edit it by using usethis::edit_r_profile()
 
-# Set your API keys and model identifiers
-options(llmr_openai_api_key = "your-openai-api-key")
-options(llmr_openai_model_gpt = "gpt-4o")
+# Set up OpenAI language model
+llmR::record_llmr_model(
+  provider = "openai",
+  api_type = "openai",
+  model = "gpt-4o", # Default model, can be changed with set_llmr_model()
+  api_key = "your_openai_api_key")
+
+# Set up Azure language model
+llmR::record_llmr_model(
+    provider = "gpt-4o_azure",
+    api_type = "azure",
+    endpoint = "ecdctestazureopenai", # the model resource URL
+    model = "gpt-4o", # the model deployment ID
+    api_key = "your_azure_api_key",
+    api_version = "2024-06-01")
+    
+# Set up Google Gemini language model
+llmR::record_llmr_model(
+    provider = "gemini",
+    api_type = "gemini",
+    model = "gemini-1.5-flash",
+    api_key = "your_gemini_api_key")
+    
+# Anthropic Claude model via "openrouter" as custom provider
+# apy_type is "custom" by default
+llmR::record_llmr_model(
+    provider = "openrouter",
+    endpoint =  "https://openrouter.ai/api/v1/chat/completions",
+    model = "anthropic/claude-3.5-sonnet",
+    api_key = "your_openrouter_api_key")
+    
+# Mistral Large model via "Azure". The "model" is not required as this
+# endpoint has only one model. api_type is "custom" by default.
+llmR::record_llmr_model(
+    provider = "Mistral-large-2407",
+    endpoint = "https://Mistral-large-2407-my_azure_resource.server_location.models.ai.azure.com/v1/chat/completions",
+    api_key = "your_model_api_key")
+    
+# Choose your default model
+llmR::set_llmr_model("openai")
 ```
-
-See use_openai_llm() and use_azure_llm() documentation for more information on the required options for each provider.
 
 ### Basic Example
 
@@ -113,18 +167,15 @@ You can enable logging to track the time taken for each request and the number o
 
 ### Custom Providers
 
-The package implements interfaces for OpenAI, and Azure GPT models, but you can also utilize other custom providers or even your own LLM functions.
+The package implements interfaces for "OpenAI", "Azure OpenAi GPT" and "Google Gemini" models, but you can also utilize other custom providers compatible with the "OpenAI" API specification or even your own LLM functions for providers with different API structures.
 
-To use a custom provider you need to set up the `llmr_custom_endpoint_gpt` option with the URL of your custom provider and set the `provider` argument in `prompt_llm()` or the `llmr_llm_provider` option to "custom". Optionally, you can set the `llmr_custom_model_gpt` option to specify the model name and the `llmr_custom_api_key` option to set an API key. For example, these are the options to use a local LLM served via Ollama:
+To create a custom provider function, you just need to name it with the following pattern: `use_<custom provide>_llm`. For example `use_myProvider_llm`. The function should accept a `body` argument and return an `httr` response object; see the `use_gemini_llm()` function body for an example on how to convert input and outputs in the required format.
 
-```r
-options(
-  llmr_custom_endpoint_gpt = "http://localhost:11434/v1/chat/completions",
-  llmr_custom_model_gpt = "llama3"
-)
-```
+To use this function you can:
 
-To create a custom provider function, you just need to name it with the following pattern: `use_<custom provide>_llm`. For example `use_myProvider_llm`. The function should accept a `body` argument and return an `httr` response object; see the `use_openai_llm()` function body for an example. Then you can use `provider = "myProvider"` in the `prompt_llm()` function or set the `llmr_llm_provider` option to "myProvider".
+- set `provider = "myProvider"` in the `prompt_llm()` function;
+- store the provider specification using `record_llmr_model()`, using with "myProvider" as the "api_type" option.
+- set the `llmr_llm_provider` option to "myProvider";
 
 ### Mock Calls
 
@@ -140,12 +191,13 @@ prompt_llm("Hello", provider = "mock")
 Will return "My test!".
 
 This feature is useful for unit tests of packages using `llmR` functions.
-You can also use the `use_mock_llm()` function directly to simulate a whole mock `httr` response object.
+You can also use the `use_mock_llm()` function directly to simulate a mock `httr` response object.
+See the function help to learn how to simulate various responses and errors.
 
 ## Citation
 
 If you use `llmR` in your research, please cite it as follows:
 
 ```
-D'Ambrosio, A. (Year). llmR: R Interface to Large Language Models. URL: https://github.com/bakaburg1/llmR
+D'Ambrosio, A. (2024). llmR: R Interface to Large Language Models. URL: https://github.com/bakaburg1/llmR
 ```
