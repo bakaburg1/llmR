@@ -6,10 +6,10 @@
 \usage{
 use_azure_llm(
   body,
-  deployment_id = getOption("llmr_azure_gpt_deployment"),
-  resource_name = getOption("llmr_azure_gpt_resource"),
+  deployment_id = getOption("llmr_model"),
+  resource_name = getOption("llmr_endpoint"),
   api_key = getOption("llmr_api_key"),
-  api_version = getOption("llmr_azure_api_version"),
+  api_version = getOption("llmr_api_version"),
   log_request = getOption("llmr_log_requests", TRUE)
 )
 }

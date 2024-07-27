@@ -10,7 +10,7 @@ prompt_llm(
   params = list(temperature = 0),
   force_json = FALSE,
   log_request = getOption("llmr_log_requests", TRUE),
-  session_id = getOption("llmr_session_id", NULL),
+  session_id = get_session_id() \%||\% set_session_id(),
   ...
 )
 }
@@ -34,10 +34,11 @@ FALSE. Works only for OpenAI and Azure endpoints.}
 \item{log_request}{A boolean to log the request time. Can be set up globally
 using the \code{llmr_log_requests} option, which defaults to TRUE.}
 
-\item{session_id}{The LLM session ID to store the data under. NOTE: this ID
-is not used to continue a conversation keeping memory of the previous
-interactions with the LLM, but it's just to keep a copy of the conversation
-for review and post-processing.}
+\item{session_id}{The LLM session ID to store the data under. If not set
+already globally, a new one will be created. NOTE: this ID is not used to
+continue a conversation keeping memory of the previous interactions with
+the LLM, but it's just to keep a copy of the conversation for review and
+post-processing.}
 
 \item{...}{Additional arguments passed to the language model provider
 functions.}
