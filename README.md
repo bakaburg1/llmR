@@ -36,8 +36,8 @@ You can install the development version of `llmR` from
 [GitHub](https://github.com/bakaburg1/llmR) with:
 
 ``` r
-# install.packages("devtools")
-devtools::install_github("bakaburg1/llmR")
+# install.packages("remotes")
+remotes::install_github("bakaburg1/llmR")
 ```
 
 ## Usage
