@@ -1,6 +1,6 @@
 #' Process chat message into standard format
 #'
-#' This function takes one or more (a list of) chat messages and processes them
+#' This function takes one or more chat messages and processes them
 #' into a standard list format with role and content for each message to be fed
 #' to a large language model.
 #'
@@ -17,20 +17,8 @@
 #'    list(role = "user", content = "Hi there!")
 #'  )}
 #'
-#'  multiple parallel prompts: \code{list(
-#'    list(
-#'      list(role = "system", content = "You are an useful AI assistant."),
-#'      list(role = "user", content = "Hi there!")
-#'    ),
-#'    list(
-#'      list(role = "system", content = "You are an useful AI assistant."),
-#'      list(role = "user", content = "Hi there!")
-#'    )
-#'  )}
-#'
-#' @param messages A character vector or list of chat messages. In can be a
-#'   vector, a specifically structured list or a list of both if the goal is the
-#'   have the API process multiple messages at once.
+#' @param messages A character vector or list of chat messages. It can be a
+#'   vector or a specifically structured list.
 #'
 #' @return A list of chat messages in standard format.
 #'
