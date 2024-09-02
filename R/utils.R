@@ -129,7 +129,17 @@ get_session_id <- function() {
 #' @param id The session ID to retrieve the data for. If not provided, all
 #'   session data will be returned.
 #'
-#' @return A list with the session data or a list of lists of session data.
+#' @return A list with the session data for the specified ID, or a list of lists
+#'   containing all session data if no ID is provided. Each session data entry
+#'   contains information about the messages, parameters, response, token usage,
+#'   processing time, provider, and model used in the interaction.
+#'
+#' @examples
+#' # Get data for a specific session
+#' session_data <- get_session_data("#12345")
+#'
+#' # Get all session data
+#' all_data <- get_session_data()
 #'
 #' @export
 get_session_data <- function(id = NULL) {
