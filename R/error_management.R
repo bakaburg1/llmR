@@ -79,7 +79,10 @@ stop_on_response_error <- function(response) {
       httr::content(response)
     }
 
-    stop("Error in LLM request: ", err_message)
+    err_code <- httr::status_code(response)
+
+    stop("Error in LLM request (", err_code,
+    "): ", err_message)
   } else {
     error_in_content <- purrr::pluck(
       httr::content(response), "error", .default = F)
