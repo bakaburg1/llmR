@@ -51,7 +51,7 @@ test_that("prompt_llm handles errors in response", {
 
   expect_error(
     prompt_llm("Test", provider = "mock"),
-    "Error in LLM request: Mock general error")
+    "Error in LLM request \\(400\\): Mock general error")
 
   options(opts)
 })
