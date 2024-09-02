@@ -288,15 +288,30 @@ set_llmr_model <- function(
 
 #' Get the current LLMR model details
 #'
-#' This function retrieves the details of the currently active LLMR model or a specified model.
-#' It returns a list containing the model specifications that were set using
-#' the set_llmr_model() function.
+#' This function retrieves the details of the currently active LLMR model or a
+#' specified model. It returns a list containing the model specifications that
+#' were set using the set_llmr_model() function.
 #'
-#' @param label The label of the model to retrieve. If NULL (default), it uses the
-#'   currently set model.
+#' @param label The label of the model to retrieve. If NULL (default), it uses
+#'   the currently set model as specified by the `llmr_current_model` option.
 #'
-#' @return A named list containing the model specifications for the requested label,
-#'   or NULL if no model is found.
+#' @return A named list containing the model specifications for the requested
+#'   label, or NULL if no model is found. The list includes the following
+#'   elements:
+#'   \itemize{
+#'     \item provider: The provider of the API (e.g., "custom", "openai", "azure", "gemini")
+#'     \item endpoint: The API endpoint to use for the provider
+#'     \item api_key: The API key to use for the provider
+#'     \item model: The default model to use for the provider
+#'     \item api_version: The version of the API to use (only for certain providers)
+#'   }
+#'
+#' @examples
+#' # Get details of the current model
+#' current_model <- get_llmr_model()
+#'
+#' # Get details of a specific model
+#' openai_model <- get_llmr_model("openai")
 #'
 #' @export
 get_llmr_model <- function(
