@@ -12,7 +12,7 @@ use_gemini_llm(
 )
 }
 \arguments{
-\item{body}{The body of the request.}
+\item{body}{The body of the request, in OpenAI API format.}
 
 \item{model}{Model identifier for the Google Gemini API. Obtained from R
 options.}
@@ -20,16 +20,20 @@ options.}
 \item{api_key}{API key for the Google Gemini service. Obtained from R
 options.}
 
-\item{log_request}{A boolean to log the request time. Can be set up globally
-using the \code{llmr_log_requests} option, which defaults to TRUE.}
+\item{log_request}{A boolean to log the request time. Default is set by the
+\code{llmr_log_requests} option.}
 }
 \value{
-The function returns the response from the Google Gemini API.
+The function returns the response from the Google Gemini API,
+transformed to match the OpenAI API response format.
 }
 \description{
 Sends a request to the Google Gemini API using the parameters in the \code{body}
 argument. It requires an API key set in the R options. Internally, the body
-and the output are transformed to be compatible with the OpenAI API. Users
-would not typically call this function directly, but rather use the
-\code{prompt_llm} function.
+and the output are transformed to be compatible with the OpenAI API format.
+}
+\note{
+This function internally transforms the request body from OpenAI format
+to Gemini format, and the response from Gemini format back to OpenAI
+format.
 }

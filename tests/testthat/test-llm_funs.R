@@ -3,15 +3,16 @@
 test_options <- list(
   llmr_model = "test-model",
   llmr_api_key = "test-api-key",
-  llmr_azure_gpt_deployment = "test-deployment",
-  llmr_azure_gpt_resource = "test-resource",
-  llmr_azure_api_version = "test-api-version",
+  llmr_api_version = "test-api-version",
   llmr_endpoint = "http://localhost:8080"
 )
 
+opts <- options()
+
 set_session_id("test")
+
 on.exit({
-  remove_session_data("test")
+  options(opts)
 })
 
 withr::with_options(test_options, {
@@ -39,7 +40,9 @@ withr::with_options(test_options, {
         result <- use_azure_llm(body)
         expect_equal(result$status_code, 200)
 
-        prompt_llm("test", provider = "azure") |>
+        prompt_llm(
+          "test", provider = "azure",
+          resource_name = "test-resource") |>
           expect_equal("Azure LLM Response")
       }
     )
@@ -187,5 +190,3 @@ withr::with_options(test_options, {
 
 
 })
-
-remove_session_data("test")

@@ -1,9 +1,10 @@
 Package: llmR
 Title: Interface to Large Language Models with an OpenAI Compatible API
-Version: 1.1.0
+Version: 1.2.0
 Authors@R: 
-    person("Angelo", "D'Ambrosio", , "a.dambrosioMD@gmail.com", role = c("aut", "cre"),
-           comment = c(ORCID = "0000-0002-2045-5155"))
+    person("Angelo", "D'Ambrosio", email = "a.dambrosioMD@gmail.com",
+        role = c("aut", "cre"),
+        comment = c(ORCID = "0000-0002-2045-5155"))
 Description: Provides an interface to various Large Language Models (LLM)
     providers (OpenAI, Azure, or other local/online endpoint). It handles prompt
     processing, rate limiting, retries, and error processing for responses.
@@ -16,7 +17,7 @@ Imports:
     vctrs (>= 0.6.5)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.1
+RoxygenNote: 7.3.2
 Suggests: 
     testthat (>= 3.0.0),
     withr

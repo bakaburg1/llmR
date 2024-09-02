@@ -1,8 +1,8 @@
 #' Process chat message into standard format
 #'
-#' This function takes one or more (a list of) chat messages and processes them
-#' into a standard list format with role and content for each message to be fed
-#' to a large language model.
+#' This function takes one or more chat messages and processes them into a
+#' standard list format with role and content for each message to be fed to a
+#' large language model.
 #'
 #' The standard format is a list of chat messages with the following structure:
 #' message: `c(role = "system", content = "Welcome to the chat!")`
@@ -17,25 +17,18 @@
 #'    list(role = "user", content = "Hi there!")
 #'  )}
 #'
-#'  multiple parallel prompts: \code{list(
-#'    list(
-#'      list(role = "system", content = "You are an useful AI assistant."),
-#'      list(role = "user", content = "Hi there!")
-#'    ),
-#'    list(
-#'      list(role = "system", content = "You are an useful AI assistant."),
-#'      list(role = "user", content = "Hi there!")
-#'    )
-#'  )}
-#'
-#' @param messages A character vector or list of chat messages. In can be a
-#'   vector, a specifically structured list or a list of both if the goal is the
-#'   have the API process multiple messages at once.
+#' @param messages A character vector or list of chat messages. It can be a
+#'   vector or a specifically structured list.
 #'
 #' @return A list of chat messages in standard format.
 #'
 #' @importFrom utils hasName
 #'
+#' @examples
+#' process_messages(c(user = "Hello, AI!"))
+#' process_messages(list(list(role = "user", content = "How are you?")))
+#'
+#' @export
 process_messages <- function(messages) {
 
   if (missing(messages) || is.null(messages) || length(messages) == 0) {
@@ -125,47 +118,48 @@ process_messages <- function(messages) {
 
 #' Interrogate a Language Model
 #'
-#' This function sends requests to a specified language model provider (OpenAI,
-#' Azure, or a locally running LLM server) and returns the response. It handles
-#' rate limiting and retries the request if necessary, and also processes errors
-#' in the response.
+#' This function sends requests to a specified language model provider and
+#' returns the response. It handles rate limiting, retries requests if
+#' necessary, and processes errors in the response.
 #'
-#' Users can provide their own models by writing a function with the following
-#' name pattern: `use_<model_name>_llm`. See the existing functions using the
-#' ::: operator for examples.
-#'
-#' @param messages Messages to be sent to the language model.
-#' @param provider The provider of the language model. Maps to a specific
-#'   function with the pattern "use_<provider>_llm. Default is set up globally
-#'   using the `llmr_llm_provider` option. The package implements interfaces for
-#'   models respecting the OpenAI (`openai`), Azure (`azure`), and Google Gemini
-#'   (`gemini`) API specifications plus a general interface for custom models
-#'   (`custom`) which implement the OpenAI API specification; see
-#'   `use_<provider>_llm` functions.
+#' @param messages Messages to be sent to the language model. Can be a single
+#'   string, a named vector, or a list of messages. See `process_messages()` for
+#'   details.
+#' @param provider The provider of the language model. Default is set by the
+#'   `llmr_llm_provider` option. Supported providers include "openai", "azure",
+#'   "gemini", and "custom".
 #' @param params Additional parameters for the language model request. Defaults
 #'   to a list with `temperature = 0`.
 #' @param force_json A boolean to force the response in JSON format. Default is
-#'   FALSE. Works only for OpenAI and Azure endpoints.
-#' @param log_request A boolean to log the request time. Can be set up globally
-#'   using the `llmr_log_requests` option, which defaults to TRUE.
-#' @param session_id The LLM session ID to store the data under. NOTE: this ID
-#'   is not used to continue a conversation keeping memory of the previous
-#'   interactions with the LLM, but it's just to keep a copy of the conversation
-#'   for review and post-processing.
+#'   FALSE. Note: This is not supported by all providers.
+#' @param log_request A boolean to log the request time. Default is set by the
+#'   `llmr_log_requests` option.
+#' @param session_id The LLM session ID to store the data under. If not set, a
+#'   new one will be created.
 #' @param ... Additional arguments passed to the language model provider
 #'   functions.
 #'
-#' @return Returns the content of the message from the language model response.
+#' @return The content of the message from the language model response.
 #'
-#' @export
+#' @section Error Handling: The function automatically handles rate limit errors
+#'   and will retry the request after waiting for the specified time. For
+#'   responses cut off due to token limits, the function will attempt to
+#'   complete the response, which may involve user interaction.
+#'
+#' @section JSON Output: When `force_json = TRUE`, the function attempts to get
+#'   a JSON response from the LLM. If parsing fails, it tries to sanitize the
+#'   output.
 #'
 #' @examples
 #' \dontrun{
+#' response <- prompt_llm(messages = c(user = "Hello there!"), provider = "openai")
 #' response <- prompt_llm(
-#'  messages = c(user = "Hello there!"),
-#'  provider = "openai")
-#'  }
+#'   messages = list(list(role = "user", content = "What's the weather?")),
+#'   params = list(temperature = 0.7)
+#' )
+#' }
 #'
+#' @export
 prompt_llm <- function(
     messages = NULL,
     provider = getOption("llmr_llm_provider"),
@@ -174,7 +168,7 @@ prompt_llm <- function(
     ),
     force_json = FALSE,
     log_request = getOption("llmr_log_requests", TRUE),
-    session_id = getOption("llmr_session_id", NULL),
+    session_id = get_session_id() %||% set_session_id(),
     ...
 ) {
 
@@ -262,6 +256,10 @@ prompt_llm <- function(
   # Return the response
   llm_answer <- purrr::imap_chr(parsed$choices, \(ans, i) {
     ans_content <- ans$message$content
+
+    if (force_json && !jsonlite::validate(ans_content)) {
+      ans_content <- sanitize_json_output(ans_content)
+    }
 
     # Manage the case when the answer is cut off due to exceeding the
     # output token limit
@@ -353,7 +351,7 @@ prompt_llm <- function(
     usage = parsed$usage,
     processing_time = elapsed,
     provider = provider,
-    model = list(...)$model,
+    model = list(...)$model %||% getOption("llmr_model"),
     session_id = session_id
   )
 
@@ -433,22 +431,22 @@ use_openai_llm <- function(
 #' @export
 use_azure_llm <- function(
     body,
-    deployment_id = getOption("llmr_azure_gpt_deployment"),
-    resource_name = getOption("llmr_azure_gpt_resource"),
+    deployment_id = getOption("llmr_model"),
+    resource_name = getOption("llmr_endpoint"),
     api_key = getOption("llmr_api_key"),
-    api_version = getOption("llmr_azure_api_version"),
+    api_version = getOption("llmr_api_version"),
     log_request = getOption("llmr_log_requests", TRUE)
 ) {
 
   if (is.null(resource_name) || is.null(deployment_id) ||
       is.null(api_key) || is.null(api_version)) {
-    stop("Azure GPT resource name, deployment name, ",
+    stop("Azure GPT deployment name (model), resource name (endpoint), ",
          "API key, or API version are not set. ",
          "Use the following options to set them:\n",
-         "llmr_azure_gpt_deployment, ",
-         "llmr_azure_gpt_resource, ",
+         "llmr_model, ",
+         "llmr_endpoint, ",
          "llmr_api_key, ",
-         "llmr_azure_api_version."
+         "llmr_api_version."
     )
   }
 
@@ -536,19 +534,22 @@ use_custom_llm <- function(
 #'
 #' Sends a request to the Google Gemini API using the parameters in the `body`
 #' argument. It requires an API key set in the R options. Internally, the body
-#' and the output are transformed to be compatible with the OpenAI API. Users
-#' would not typically call this function directly, but rather use the
-#' `prompt_llm` function.
+#' and the output are transformed to be compatible with the OpenAI API format.
 #'
-#' @param body The body of the request.
+#' @param body The body of the request, in OpenAI API format.
 #' @param model Model identifier for the Google Gemini API. Obtained from R
 #'   options.
 #' @param api_key API key for the Google Gemini service. Obtained from R
 #'   options.
-#' @param log_request A boolean to log the request time. Can be set up globally
-#'   using the `llmr_log_requests` option, which defaults to TRUE.
+#' @param log_request A boolean to log the request time. Default is set by the
+#'   `llmr_log_requests` option.
 #'
-#' @return The function returns the response from the Google Gemini API.
+#' @return The function returns the response from the Google Gemini API,
+#'   transformed to match the OpenAI API response format.
+#'
+#' @note This function internally transforms the request body from OpenAI format
+#'   to Gemini format, and the response from Gemini format back to OpenAI
+#'   format.
 #'
 #' @export
 use_gemini_llm <- function(

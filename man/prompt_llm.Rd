@@ -10,57 +10,62 @@ prompt_llm(
   params = list(temperature = 0),
   force_json = FALSE,
   log_request = getOption("llmr_log_requests", TRUE),
-  session_id = getOption("llmr_session_id", NULL),
+  session_id = get_session_id() \%||\% set_session_id(),
   ...
 )
 }
 \arguments{
-\item{messages}{Messages to be sent to the language model.}
+\item{messages}{Messages to be sent to the language model. Can be a single
+string, a named vector, or a list of messages. See \code{process_messages()} for
+details.}
 
-\item{provider}{The provider of the language model. Maps to a specific
-function with the pattern "use_\if{html}{\out{<provider>}}_llm. Default is set up globally
-using the \code{llmr_llm_provider} option. The package implements interfaces for
-models respecting the OpenAI (\code{openai}), Azure (\code{azure}), and Google Gemini
-(\code{gemini}) API specifications plus a general interface for custom models
-(\code{custom}) which implement the OpenAI API specification; see
-\verb{use_<provider>_llm} functions.}
+\item{provider}{The provider of the language model. Default is set by the
+\code{llmr_llm_provider} option. Supported providers include "openai", "azure",
+"gemini", and "custom".}
 
 \item{params}{Additional parameters for the language model request. Defaults
 to a list with \code{temperature = 0}.}
 
 \item{force_json}{A boolean to force the response in JSON format. Default is
-FALSE. Works only for OpenAI and Azure endpoints.}
+FALSE. Note: This is not supported by all providers.}
 
-\item{log_request}{A boolean to log the request time. Can be set up globally
-using the \code{llmr_log_requests} option, which defaults to TRUE.}
+\item{log_request}{A boolean to log the request time. Default is set by the
+\code{llmr_log_requests} option.}
 
-\item{session_id}{The LLM session ID to store the data under. NOTE: this ID
-is not used to continue a conversation keeping memory of the previous
-interactions with the LLM, but it's just to keep a copy of the conversation
-for review and post-processing.}
+\item{session_id}{The LLM session ID to store the data under. If not set, a
+new one will be created.}
 
 \item{...}{Additional arguments passed to the language model provider
 functions.}
 }
 \value{
-Returns the content of the message from the language model response.
+The content of the message from the language model response.
 }
 \description{
-This function sends requests to a specified language model provider (OpenAI,
-Azure, or a locally running LLM server) and returns the response. It handles
-rate limiting and retries the request if necessary, and also processes errors
-in the response.
+This function sends requests to a specified language model provider and
+returns the response. It handles rate limiting, retries requests if
+necessary, and processes errors in the response.
 }
-\details{
-Users can provide their own models by writing a function with the following
-name pattern: \verb{use_<model_name>_llm}. See the existing functions using the
-::: operator for examples.
+\section{Error Handling}{
+ The function automatically handles rate limit errors
+and will retry the request after waiting for the specified time. For
+responses cut off due to token limits, the function will attempt to
+complete the response, which may involve user interaction.
 }
+
+\section{JSON Output}{
+ When \code{force_json = TRUE}, the function attempts to get
+a JSON response from the LLM. If parsing fails, it tries to sanitize the
+output.
+}
+
 \examples{
 \dontrun{
+response <- prompt_llm(messages = c(user = "Hello there!"), provider = "openai")
 response <- prompt_llm(
- messages = c(user = "Hello there!"),
- provider = "openai")
- }
+  messages = list(list(role = "user", content = "What's the weather?")),
+  params = list(temperature = 0.7)
+)
+}
 
 }

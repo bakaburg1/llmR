@@ -7,17 +7,16 @@
 process_messages(messages)
 }
 \arguments{
-\item{messages}{A character vector or list of chat messages. In can be a
-vector, a specifically structured list or a list of both if the goal is the
-have the API process multiple messages at once.}
+\item{messages}{A character vector or list of chat messages. It can be a
+vector or a specifically structured list.}
 }
 \value{
 A list of chat messages in standard format.
 }
 \description{
-This function takes one or more (a list of) chat messages and processes them
-into a standard list format with role and content for each message to be fed
-to a large language model.
+This function takes one or more chat messages and processes them into a
+standard list format with role and content for each message to be fed to a
+large language model.
 }
 \details{
 The standard format is a list of chat messages with the following structure:
@@ -32,15 +31,9 @@ list format: \code{list(
    list(role = "system", content = "You are an useful AI assistant."),
    list(role = "user", content = "Hi there!")
  )}
+}
+\examples{
+process_messages(c(user = "Hello, AI!"))
+process_messages(list(list(role = "user", content = "How are you?")))
 
-multiple parallel prompts: \code{list(
-   list(
-     list(role = "system", content = "You are an useful AI assistant."),
-     list(role = "user", content = "Hi there!")
-   ),
-   list(
-     list(role = "system", content = "You are an useful AI assistant."),
-     list(role = "user", content = "Hi there!")
-   )
- )}
 }
