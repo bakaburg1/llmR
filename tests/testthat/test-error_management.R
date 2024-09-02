@@ -80,7 +80,7 @@ test_that("stop_on_response_error stops execution on HTTP error", {
 
   expect_error(
     stop_on_response_error(response),
-    "Error in LLM request: Mock server error.")
+    "Error in LLM request \\(500\\): Mock server error.")
 })
 
 test_that("stop_on_response_error stops for errors in the response content but not the HTTP code", {
