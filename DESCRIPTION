@@ -1,6 +1,6 @@
 Package: llmR
 Title: Interface to Large Language Models with an OpenAI Compatible API
-Version: 1.2.0
+Version: 1.3.0
 Authors@R: 
     person("Angelo", "D'Ambrosio", email = "a.dambrosioMD@gmail.com",
         role = c("aut", "cre"),
