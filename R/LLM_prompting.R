@@ -129,7 +129,7 @@ process_messages <- function(messages) {
 #'   `llmr_llm_provider` option. Supported providers include "openai", "azure",
 #'   "gemini", and "custom".
 #' @param params Additional parameters for the language model request. Defaults
-#'   to a list with `temperature = 0`.
+#'   to an empty list.
 #' @param force_json A boolean to force the response in JSON format. Default is
 #'   FALSE. Note: This is not supported by all providers.
 #' @param log_request A boolean to log the request time. Default is set by the
@@ -152,7 +152,11 @@ process_messages <- function(messages) {
 #'
 #' @examples
 #' \dontrun{
-#' response <- prompt_llm(messages = c(user = "Hello there!"), provider = "openai")
+#' response <- prompt_llm(
+#'   messages = c(user = "Hello there!"),
+#'   provider = "openai"
+#' )
+#'
 #' response <- prompt_llm(
 #'   messages = list(list(role = "user", content = "What's the weather?")),
 #'   params = list(temperature = 0.7)
@@ -163,9 +167,7 @@ process_messages <- function(messages) {
 prompt_llm <- function(
     messages = NULL,
     provider = getOption("llmr_llm_provider"),
-    params = list(
-      temperature = 0
-    ),
+    params = list(),
     force_json = FALSE,
     log_request = getOption("llmr_log_requests", TRUE),
     session_id = get_session_id() %||% set_session_id(),
@@ -178,11 +180,6 @@ prompt_llm <- function(
     stop("Language model provider is not set. ",
          "You can use the following option to set it globally:\n",
          "llmr_llm_provider.")
-  }
-
-  # Set default temperature if not provided
-  if (!"temperature" %in% names(params)) {
-    params$temperature <- 0
   }
 
   # Prepare the body of the request and merge with default
@@ -208,7 +205,7 @@ prompt_llm <- function(
   # Try to send the request
   retry <- FALSE
 
-  while(!exists("response", inherits = FALSE) || retry) {
+  while (!exists("response", inherits = FALSE) || retry) {
 
     retry <- FALSE
 
