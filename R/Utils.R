@@ -129,7 +129,17 @@ get_session_id <- function() {
 #' @param id The session ID to retrieve the data for. If not provided, all
 #'   session data will be returned.
 #'
-#' @return A list with the session data or a list of lists of session data.
+#' @return A list with the session data for the specified ID, or a list of lists
+#'   containing all session data if no ID is provided. Each session data entry
+#'   contains information about the messages, parameters, response, token usage,
+#'   processing time, provider, and model used in the interaction.
+#'
+#' @examples
+#' # Get data for a specific session
+#' session_data <- get_session_data("#12345")
+#'
+#' # Get all session data
+#' all_data <- get_session_data()
 #'
 #' @export
 get_session_data <- function(id = NULL) {
@@ -178,7 +188,7 @@ remove_session_data <- function(id = NULL) {
 
     if (!(id %in% names(llmr_session_data))) {
       warning("Session ID '", id, "' not present in session history.",
-      call. = FALSE, immediate. = TRUE)
+              call. = FALSE, immediate. = TRUE)
       return()
     }
 
@@ -191,9 +201,8 @@ remove_session_data <- function(id = NULL) {
 #'
 #' Store the specifications for a language model in the global options.
 #'
-#' @param provider The provider name under which to store the model
-#'   specifications.
-#' @param api_type The type of API used by the provider (custom, openai, azure,
+#' @param label A label under which to store the model specification.
+#' @param provider The provider of the API (custom, openai, azure,
 #'   or gemini).
 #' @param endpoint The API endpoint to use for the provider.
 #' @param api_key The API key to use for the provider.
@@ -206,22 +215,22 @@ remove_session_data <- function(id = NULL) {
 #'
 #' @export
 record_llmr_model <- function(
-  provider,
-  api_type = c("custom", "openai", "azure", "gemini"),
-  endpoint = NULL,
-  api_key = NULL,
-  model = NULL,
-  api_version = NULL
+    label,
+    provider = c("custom", "openai", "azure", "gemini"),
+    endpoint = NULL,
+    api_key = NULL,
+    model = NULL,
+    api_version = NULL
 ) {
 
-  api_type <- match.arg(api_type)
+  provider <- match.arg(provider)
 
   # Get current stored model specifications
   cur_specs <- getOption("llmr_stored_models", list())
 
-  # Store model data
-  cur_specs[[provider]] <- mget(
-    c("api_type", "endpoint", "api_key", "model", "api_version")
+  # Store model data
+  cur_specs[[label]] <- mget(
+    c("provider", "endpoint", "api_key", "model", "api_version")
   )
 
   # Store the options
@@ -231,19 +240,19 @@ record_llmr_model <- function(
 #' Set the current LLMR model
 #'
 #' This function allows you to set the current LLMR model to use for subsequent
-#' operations. It retrieves the stored model specifications for the given
-#' provider and updates the global options accordingly.
+#' operations. It retrieves the stored model specifications using the label
+#' under which it is stored and updates the global options accordingly.
 #'
-#' @param provider The provider for which to set the current model.
+#' @param label The label to choose a model among the stored ones.
 #' @param model An optional model to override the default model for the
-#'  provider, if any.
+#'   provider, if any.
 #'
 #' @return Invisibly, the updated global options.
 #'
 #' @export
 set_llmr_model <- function(
-  provider,
-  model = NULL
+    label,
+    model = NULL
 ) {
 
   all_models <- getOption("llmr_stored_models", list())
@@ -254,13 +263,13 @@ set_llmr_model <- function(
     return(invisible())
   }
 
-  if (!(provider %in% names(all_models))) {
-    warning("No stored model for provider '", provider, "'.",
+  if (!(label %in% names(all_models))) {
+    warning("No stored model specification under label '", label, "'.",
             call. = FALSE, immediate. = TRUE)
     return(invisible())
   }
 
-  this_model <- all_models[[provider]]
+  this_model <- all_models[[label]]
 
   if (!is.null(model)) {
     this_model$model <- model
@@ -268,26 +277,95 @@ set_llmr_model <- function(
 
   # Set current model
   options(
+    llmr_current_model = label,
     llmr_model = this_model$model,
     llmr_endpoint = this_model$endpoint,
-    llmr_llm_provider = this_model$api_type,
+    llmr_llm_provider = this_model$provider,
     llmr_api_key = this_model$api_key,
     llmr_api_version = this_model$api_version
   )
 }
 
+#' Get the current LLMR model details
+#'
+#' This function retrieves the details of the currently active LLMR model or a
+#' specified model. It returns a list containing the model specifications that
+#' were set using the set_llmr_model() function.
+#'
+#' @param label The label of the model to retrieve. If NULL (default), it uses
+#'   the currently set model as specified by the `llmr_current_model` option.
+#'
+#' @return A named list containing the model specifications for the requested
+#'   label, or NULL if no model is found. The list includes the following
+#'   elements:
+#'   \itemize{
+#'     \item provider: The provider of the API (e.g., "custom", "openai", "azure", "gemini")
+#'     \item endpoint: The API endpoint to use for the provider
+#'     \item api_key: The API key to use for the provider
+#'     \item model: The default model to use for the provider
+#'     \item api_version: The version of the API to use (only for certain providers)
+#'   }
+#'
+#' @examples
+#' # Get details of the current model
+#' current_model <- get_llmr_model()
+#'
+#' # Get details of a specific model
+#' openai_model <- get_llmr_model("openai")
+#'
+#' @export
+get_llmr_model <- function(
+    label = getOption("llmr_current_model", NULL)
+) {
+  stored_models <- getOption("llmr_stored_models", list())
+
+  if (length(stored_models) == 0) {
+    warning("No models have been stored yet.",
+            call. = FALSE, immediate. = TRUE)
+    return(invisible())
+  }
+
+  if (is.null(label) && is.null(getOption("llmr_current_model"))) {
+    warning("No current model has been set yet.",
+            call. = FALSE, immediate. = TRUE)
+    return(invisible())
+  }
+
+  if (!is.null(label) && !(label %in% names(stored_models))) {
+    warning("No stored model specification under label '", label, "'.",
+            call. = FALSE, immediate. = TRUE)
+    return(invisible())
+  }
+
+  stored_models[label]
+}
+
+#' Sanitize JSON output
+#'
+#' This function takes a string of JSON output and applies a series of sanitization
+#' steps to remove leading/trailing whitespace, extra spaces, backslashes before
+#' quotes, and other formatting issues. It is intended to be used to clean up
+#' JSON output before further processing.
+#'
+#' @param x A string of JSON output to be sanitized.
+#' @return The sanitized JSON output.
+#' @examples
+#' json_output <- '```json\n{\n  "key": "value"\n}```'
+#' sanitized <- llmR:::sanitize_json_output(json_output)
+#' print(sanitized)
+#' # Output: {"key": "value"}
 sanitize_json_output <- function(x) {
   before <- x
-  
+
   # Remove leading and trailing whitespace
   x <- trimws(x)
-  
+
   # Remove newlines and extra spaces outside of quoted strings
   x <- gsub("\\s+(?=([^\"]*\"[^\"]*\")*[^\"]*$)", " ", x, perl = TRUE)
-  
+
   # Remove backslashes before quotes
   x <- gsub("\\\\(?=\")", "", x, perl = TRUE)
-  
+
   # Apply sanitization steps
   x <- gsub("\\n+", "\n", x)
   x <- gsub("\\s+", " ", x)
@@ -295,11 +373,11 @@ sanitize_json_output <- function(x) {
     "^```(json)?\\n?", "", x,
     ignore.case = TRUE)
   x <- gsub("```\\n*$", "", x)
-  
+
   if (before != x) {
     warning("JSON output needed sanitization!",
-    call. = FALSE, immediate. = FALSE)
+            call. = FALSE, immediate. = FALSE)
   }
-  
+
   x
 }
