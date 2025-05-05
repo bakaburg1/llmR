@@ -25,7 +25,7 @@ format_timediff <- function(td, precision = 3) {
 #'
 #' @export
 set_session_id <- function(
-    session_id = NULL
+  session_id = NULL
 ) {
   if (is.null(session_id)) {
     session_id <- paste0("#", as.numeric(Sys.time()))
@@ -55,16 +55,15 @@ set_session_id <- function(
 #' @export
 #'
 store_llm_session_data <- function(
-    messages,
-    parameters = NULL,
-    response,
-    usage = NULL,
-    processing_time = NULL,
-    provider = getOption("llmr_provider", NULL),
-    model = getOption("llmr_model", NULL),
-    session_id = getOption("llmr_session_id", NULL)
+  messages,
+  parameters = NULL,
+  response,
+  usage = NULL,
+  processing_time = NULL,
+  provider = getOption("llmr_provider", NULL),
+  model = getOption("llmr_model", NULL),
+  session_id = getOption("llmr_session_id", NULL)
 ) {
-
   # If no session ID exist yet, generate a new one
   # Ensure a session ID exists
   session_id <- session_id %||% set_session_id()
@@ -80,20 +79,32 @@ store_llm_session_data <- function(
   if (is.na(as.numeric(processing_time))) {
     stop(
       "Processing time should be either a number of seconds or ",
-      "a 'difftime' object")
+      "a 'difftime' object"
+    )
   }
 
   # Calculate the generation speed
-  gen_speed <- output_tokens/processing_time
+  gen_speed <- output_tokens / processing_time
 
   # Get the current timestamp
   ts <- Sys.time()
 
   # Store the data in a list, named by the timestamp
   new_session_data <- list(mget(
-    c("ts", "messages", "parameters", "response", "input_tokens",
-      "output_tokens", "processing_time", "gen_speed", "provider", "model"),
-  )) |> stats::setNames(ts)
+    c(
+      "ts",
+      "messages",
+      "parameters",
+      "response",
+      "input_tokens",
+      "output_tokens",
+      "processing_time",
+      "gen_speed",
+      "provider",
+      "model"
+    ),
+  )) |>
+    stats::setNames(ts)
 
   # Get the current session data
   current_session_data <- getOption("llmr_session_data", list())
@@ -105,7 +116,9 @@ store_llm_session_data <- function(
 
   # Append the new data to the session data
   current_session_data[[session_id]] <- append(
-    current_session_data[[session_id]], new_session_data)
+    current_session_data[[session_id]],
+    new_session_data
+  )
 
   # Store the updated session data
   options(llmr_session_data = current_session_data)
@@ -187,8 +200,13 @@ remove_session_data <- function(id = NULL) {
     }
 
     if (!(id %in% names(llmr_session_data))) {
-      warning("Session ID '", id, "' not present in session history.",
-              call. = FALSE, immediate. = TRUE)
+      warning(
+        "Session ID '",
+        id,
+        "' not present in session history.",
+        call. = FALSE,
+        immediate. = TRUE
+      )
       return()
     }
 
@@ -215,14 +233,13 @@ remove_session_data <- function(id = NULL) {
 #'
 #' @export
 record_llmr_model <- function(
-    label,
-    provider = c("custom", "openai", "azure", "gemini"),
-    endpoint = NULL,
-    api_key = NULL,
-    model = NULL,
-    api_version = NULL
+  label,
+  provider = c("custom", "openai", "azure", "gemini"),
+  endpoint = NULL,
+  api_key = NULL,
+  model = NULL,
+  api_version = NULL
 ) {
-
   provider <- match.arg(provider)
 
   # Get current stored model specifications
@@ -251,21 +268,24 @@ record_llmr_model <- function(
 #'
 #' @export
 set_llmr_model <- function(
-    label,
-    model = NULL
+  label,
+  model = NULL
 ) {
-
   all_models <- getOption("llmr_stored_models", list())
 
   if (length(all_models) == 0) {
-    warning("No models have been stored yet.",
-            call. = FALSE, immediate. = TRUE)
+    warning("No models have been stored yet.", call. = FALSE, immediate. = TRUE)
     return(invisible())
   }
 
   if (!(label %in% names(all_models))) {
-    warning("No stored model specification under label '", label, "'.",
-            call. = FALSE, immediate. = TRUE)
+    warning(
+      "No stored model specification under label '",
+      label,
+      "'.",
+      call. = FALSE,
+      immediate. = TRUE
+    )
     return(invisible())
   }
 
@@ -315,25 +335,32 @@ set_llmr_model <- function(
 #'
 #' @export
 get_llmr_model <- function(
-    label = getOption("llmr_current_model", NULL)
+  label = getOption("llmr_current_model", NULL)
 ) {
   stored_models <- getOption("llmr_stored_models", list())
 
   if (length(stored_models) == 0) {
-    warning("No models have been stored yet.",
-            call. = FALSE, immediate. = TRUE)
+    warning("No models have been stored yet.", call. = FALSE, immediate. = TRUE)
     return(invisible())
   }
 
   if (is.null(label) && is.null(getOption("llmr_current_model"))) {
-    warning("No current model has been set yet.",
-            call. = FALSE, immediate. = TRUE)
+    warning(
+      "No current model has been set yet.",
+      call. = FALSE,
+      immediate. = TRUE
+    )
     return(invisible())
   }
 
   if (!is.null(label) && !(label %in% names(stored_models))) {
-    warning("No stored model specification under label '", label, "'.",
-            call. = FALSE, immediate. = TRUE)
+    warning(
+      "No stored model specification under label '",
+      label,
+      "'.",
+      call. = FALSE,
+      immediate. = TRUE
+    )
     return(invisible())
   }
 
@@ -370,13 +397,19 @@ sanitize_json_output <- function(x) {
   x <- gsub("\\n+", "\n", x)
   x <- gsub("\\s+", " ", x)
   x <- gsub(
-    "^```(json)?\\n?", "", x,
-    ignore.case = TRUE)
+    "^```(json)?\\n?",
+    "",
+    x,
+    ignore.case = TRUE
+  )
   x <- gsub("```\\n*$", "", x)
 
   if (before != x) {
-    warning("JSON output needed sanitization!",
-            call. = FALSE, immediate. = FALSE)
+    warning(
+      "JSON output needed sanitization!",
+      call. = FALSE,
+      immediate. = FALSE
+    )
   }
 
   x

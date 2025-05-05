@@ -15,20 +15,26 @@
 #' @return `TRUE` if the request failed due to rate limiting
 #'
 is_rate_limit_exceeded <- function(
-    response,
-    wait = TRUE,
-    max_attempts = getOption("llmr_retry_attempts", 3),
-    log_request = getOption("llmr_log_request", FALSE)
+  response,
+  wait = TRUE,
+  max_attempts = getOption("llmr_retry_attempts", 3),
+  log_request = getOption("llmr_log_request", FALSE)
 ) {
   failure <- FALSE
 
   if (httr::status_code(response) == 429) {
-    warning("Rate limit exceeded. Waiting before retrying.",
-            immediate. = TRUE, call. = FALSE)
+    warning(
+      "Rate limit exceeded. Waiting before retrying.",
+      immediate. = TRUE,
+      call. = FALSE
+    )
 
     if (log_request) {
-      warning(httr::content(response)$error$message,
-              immediate. = TRUE, call. = FALSE)
+      warning(
+        httr::content(response)$error$message,
+        immediate. = TRUE,
+        call. = FALSE
+      )
     }
 
     to_wait <- as.numeric(httr::headers(response)$`retry-after`)
@@ -46,8 +52,11 @@ is_rate_limit_exceeded <- function(
     if (attempt_number > max_attempts) {
       options(llmr_attempt_number = 1)
 
-      stop("Maximum number of attempts (", max_attempts,
-           ") on `retry` error reached.")
+      stop(
+        "Maximum number of attempts (",
+        max_attempts,
+        ") on `retry` error reached."
+      )
     }
 
     failure <- TRUE
@@ -67,7 +76,6 @@ is_rate_limit_exceeded <- function(
 #'
 #' @return NULL
 stop_on_response_error <- function(response) {
-
   if (httr::http_error(response)) {
     err_obj <- httr::content(response)$error
 
@@ -81,11 +89,13 @@ stop_on_response_error <- function(response) {
 
     err_code <- httr::status_code(response)
 
-    stop("Error in LLM request (", err_code,
-    "): ", err_message)
+    stop("Error in LLM request (", err_code, "): ", err_message)
   } else {
     error_in_content <- purrr::pluck(
-      httr::content(response), "error", .default = F)
+      httr::content(response),
+      "error",
+      .default = F
+    )
 
     if (!isFALSE(error_in_content)) {
       stop("Error in LLM request: ", error_in_content$message)
@@ -104,9 +114,9 @@ stop_on_response_error <- function(response) {
 stop_on_no_output <- function(parsed) {
   if (
     purrr::is_empty(parsed$usage$completion_tokens) ||
-    parsed$usage$completion_tokens == 0 ||
-    is.null(parsed$usage$completion_tokens)) {
-
+      parsed$usage$completion_tokens == 0 ||
+      is.null(parsed$usage$completion_tokens)
+  ) {
     stop("No tokens were generated.")
   }
 }

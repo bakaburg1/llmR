@@ -30,36 +30,36 @@
 #'
 #' @export
 process_messages <- function(messages) {
-
   if (missing(messages) || is.null(messages) || length(messages) == 0) {
     stop("User messages are required.")
   }
 
   # Assume that a single message is from the user
-  if (length(messages) == 1 &&
+  if (
+    length(messages) == 1 &&
       is.character(messages) &&
-      is.null(names(messages))) {
+      is.null(names(messages))
+  ) {
     messages <- c(user = messages)
   }
 
   # Convert vector to list format
   vector_to_list <- function(msg_vec) {
-
     # Check if vector is in named format
     check <- all(
       names(msg_vec) %in%
-        c("system", "user", "assistant", "function")
-      , na.rm = TRUE)
+        c("system", "user", "assistant", "function"),
+      na.rm = TRUE
+    )
 
     check <- check && !is.null(names(msg_vec))
 
     if (check) {
-
       # Convert from vector to list format
       msg_vec <- purrr::imap(msg_vec, function(msg, nm) {
         list(role = nm, content = msg)
-      }) |> stats::setNames(NULL)
-
+      }) |>
+        stats::setNames(NULL)
     } else {
       stop("Invalid format for 'messages' vector.")
     }
@@ -67,7 +67,6 @@ process_messages <- function(messages) {
 
   # Validate list format
   validate_list_format <- function(msg_list) {
-
     # Check if the message is in correct list format
     check <- !purrr::every(msg_list, function(msg) {
       vctrs::obj_is_list(msg) &&
@@ -84,9 +83,7 @@ process_messages <- function(messages) {
     return(vector_to_list(messages))
   }
 
-
   if (vctrs::obj_is_list(messages)) {
-
     # Check if valid list format
     if (validate_list_format(messages)) {
       return(messages)
@@ -109,11 +106,9 @@ process_messages <- function(messages) {
     #   return(messages)
     #
     # }
-
   }
 
   stop("Message is neither a valid vector nor a valid list.")
-
 }
 
 #' Interrogate a Language Model
@@ -165,21 +160,22 @@ process_messages <- function(messages) {
 #'
 #' @export
 prompt_llm <- function(
-    messages = NULL,
-    provider = getOption("llmr_llm_provider"),
-    params = list(),
-    force_json = FALSE,
-    log_request = getOption("llmr_log_requests", TRUE),
-    session_id = get_session_id() %||% set_session_id(),
-    ...
+  messages = NULL,
+  provider = getOption("llmr_llm_provider"),
+  params = list(),
+  force_json = FALSE,
+  log_request = getOption("llmr_log_requests", TRUE),
+  session_id = get_session_id() %||% set_session_id(),
+  ...
 ) {
-
   messages <- process_messages(messages)
 
   if (is.null(provider)) {
-    stop("Language model provider is not set. ",
-         "You can use the following option to set it globally:\n",
-         "llmr_llm_provider.")
+    stop(
+      "Language model provider is not set. ",
+      "You can use the following option to set it globally:\n",
+      "llmr_llm_provider."
+    )
   }
 
   # Prepare the body of the request and merge with default
@@ -196,8 +192,11 @@ prompt_llm <- function(
   llm_fun <- paste0("use_", provider, "_llm")
 
   if (!exists(llm_fun, mode = "function")) {
-    stop("Unsupported LLM provider: ", provider,
-         "\nYou can set it project-wide using the llmr_llm_provider option.")
+    stop(
+      "Unsupported LLM provider: ",
+      provider,
+      "\nYou can set it project-wide using the llmr_llm_provider option."
+    )
   }
 
   llm_fun <- get(llm_fun)
@@ -206,7 +205,6 @@ prompt_llm <- function(
   retry <- FALSE
 
   while (!exists("response", inherits = FALSE) || retry) {
-
     retry <- FALSE
 
     gen_start <- Sys.time()
@@ -236,18 +234,27 @@ prompt_llm <- function(
     }
 
     # Log information about the generated response
-    with(parsed$usage,
-         paste(
-           "Params:", jsonlite::toJSON(params, auto_unbox = T),
-           "\nGeneration time:", format_timediff(elapsed),
-           "\nPrompt tokens:", prompt_tokens,
-           "\nResponse tokens:", completion_tokens,
-           "\nGeneration speed:", paste(
-             signif(completion_tokens/as.numeric(elapsed, "secs"), 3), "t/s"),
-           "\nTotal tokens:", total_tokens
-         )
-    ) |> message()
-
+    with(
+      parsed$usage,
+      paste(
+        "Params:",
+        jsonlite::toJSON(params, auto_unbox = T),
+        "\nGeneration time:",
+        format_timediff(elapsed),
+        "\nPrompt tokens:",
+        prompt_tokens,
+        "\nResponse tokens:",
+        completion_tokens,
+        "\nGeneration speed:",
+        paste(
+          signif(completion_tokens / as.numeric(elapsed, "secs"), 3),
+          "t/s"
+        ),
+        "\nTotal tokens:",
+        total_tokens
+      )
+    ) |>
+      message()
   }
 
   # Return the response
@@ -266,8 +273,11 @@ prompt_llm <- function(
       opt_name <- Sys.time()
 
       message(
-        "\nAnswer", i, "exhausted the context window!\n",
-        "The incomplete answer has been saved as: ", opt_name,
+        "\nAnswer",
+        i,
+        "exhausted the context window!\n",
+        "The incomplete answer has been saved as: ",
+        opt_name,
         "in the `llmr_incomplete_answers` option object.\n",
       )
 
@@ -294,16 +304,17 @@ prompt_llm <- function(
       if (!is.null(choice)) {
         message(
           sprintf(
-            '\nWill follow the option %d: "%s"\n', choice, choices[choice])
+            '\nWill follow the option %d: "%s"\n',
+            choice,
+            choices[choice]
+          )
         )
       }
 
       # Otherwise, if interactive and no choice was set in the options, ask the
       # user how to proceed
       if (interactive() && is.null(choice)) {
-        choice <- utils::menu(choices,
-          title = "How do you want to proceed?"
-        )
+        choice <- utils::menu(choices, title = "How do you want to proceed?")
       }
 
       if (choice == 1) {
@@ -372,17 +383,18 @@ prompt_llm <- function(
 #'
 #' @export
 use_openai_llm <- function(
-    body,
-    model = getOption("llmr_model"),
-    api_key = getOption("llmr_api_key"),
-    log_request = getOption("llmr_log_requests", TRUE)
+  body,
+  model = getOption("llmr_model"),
+  api_key = getOption("llmr_api_key"),
+  log_request = getOption("llmr_log_requests", TRUE)
 ) {
-
   if (is.null(api_key) || is.null(model)) {
-    stop("OpenAI GPT model or API key are not set. ",
-         "Use the following options to set them:\n",
-         "llmr_model, ",
-         "llmr_api_key options.")
+    stop(
+      "OpenAI GPT model or API key are not set. ",
+      "Use the following options to set them:\n",
+      "llmr_model, ",
+      "llmr_api_key options."
+    )
   }
 
   if (log_request) {
@@ -401,7 +413,6 @@ use_openai_llm <- function(
     body = jsonlite::toJSON(body, auto_unbox = TRUE),
     encode = "json"
   )
-
 }
 
 #' Use Azure Language Model
@@ -427,30 +438,40 @@ use_openai_llm <- function(
 #'
 #' @export
 use_azure_llm <- function(
-    body,
-    deployment_id = getOption("llmr_model"),
-    resource_name = getOption("llmr_endpoint"),
-    api_key = getOption("llmr_api_key"),
-    api_version = getOption("llmr_api_version"),
-    log_request = getOption("llmr_log_requests", TRUE)
+  body,
+  deployment_id = getOption("llmr_model"),
+  resource_name = getOption("llmr_endpoint"),
+  api_key = getOption("llmr_api_key"),
+  api_version = getOption("llmr_api_version"),
+  log_request = getOption("llmr_log_requests", TRUE)
 ) {
-
-  if (is.null(resource_name) || is.null(deployment_id) ||
-      is.null(api_key) || is.null(api_version)) {
-    stop("Azure GPT deployment name (model), resource name (endpoint), ",
-         "API key, or API version are not set. ",
-         "Use the following options to set them:\n",
-         "llmr_model, ",
-         "llmr_endpoint, ",
-         "llmr_api_key, ",
-         "llmr_api_version."
+  if (
+    is.null(resource_name) ||
+      is.null(deployment_id) ||
+      is.null(api_key) ||
+      is.null(api_version)
+  ) {
+    stop(
+      "Azure GPT deployment name (model), resource name (endpoint), ",
+      "API key, or API version are not set. ",
+      "Use the following options to set them:\n",
+      "llmr_model, ",
+      "llmr_endpoint, ",
+      "llmr_api_key, ",
+      "llmr_api_version."
     )
   }
 
   if (log_request) {
     message(
-      "Interrogating Azure OpenAI: ", resource_name, "/", deployment_id,
-      " (", api_version, ")...")
+      "Interrogating Azure OpenAI: ",
+      resource_name,
+      "/",
+      deployment_id,
+      " (",
+      api_version,
+      ")..."
+    )
   }
 
   # Prepare the request
@@ -461,11 +482,11 @@ use_azure_llm <- function(
       ".openai.azure.com/openai/deployments/",
       deployment_id,
       "/chat/completions?api-version=",
-      api_version),
+      api_version
+    ),
     httr::add_headers(`Content-Type` = "application/json", `api-key` = api_key),
     body = jsonlite::toJSON(body, auto_unbox = TRUE)
   )
-
 }
 
 #' Use Custom Language Model
@@ -492,17 +513,17 @@ use_azure_llm <- function(
 #'
 #' @export
 use_custom_llm <- function(
-    body,
-    endpoint = getOption("llmr_endpoint"),
-    model = getOption("llmr_model"),
-    api_key = getOption("llmr_api_key"),
-    log_request = getOption("llmr_log_requests", TRUE)
+  body,
+  endpoint = getOption("llmr_endpoint"),
+  model = getOption("llmr_model"),
+  api_key = getOption("llmr_api_key"),
+  log_request = getOption("llmr_log_requests", TRUE)
 ) {
-
   if (is.null(endpoint)) {
-    stop("Local endpoint is not set. ",
-         "Use the following options to set it:\n",
-         "llmr_endpoint"
+    stop(
+      "Local endpoint is not set. ",
+      "Use the following options to set it:\n",
+      "llmr_endpoint"
     )
   }
 
@@ -521,10 +542,10 @@ use_custom_llm <- function(
       `Content-Type` = "application/json",
       if (!is.null(api_key)) {
         .headers = c(Authorization = paste0("Bearer ", api_key))
-      }),
+      }
+    ),
     body = jsonlite::toJSON(body, auto_unbox = TRUE)
   )
-
 }
 
 #' Use Google Gemini Language Model
@@ -550,24 +571,30 @@ use_custom_llm <- function(
 #'
 #' @export
 use_gemini_llm <- function(
-    body,
-    model = getOption("llmr_model"),
-    api_key = getOption("llmr_api_key"),
-    log_request = getOption("llmr_log_requests", TRUE)
+  body,
+  model = getOption("llmr_model"),
+  api_key = getOption("llmr_api_key"),
+  log_request = getOption("llmr_log_requests", TRUE)
 ) {
-
   if (is.null(api_key) || is.null(model)) {
-    stop("Google Gemini model or API key are not set. ",
-         "Use the following options to set them:\n",
-         "llmr_model, ",
-         "llmr_api_key options.")
+    stop(
+      "Google Gemini model or API key are not set. ",
+      "Use the following options to set them:\n",
+      "llmr_model, ",
+      "llmr_api_key options."
+    )
   }
 
   if (log_request) {
     message("Interrogating Google Gemini: ", model, "...")
   }
 
-  url <- paste0("https://generativelanguage.googleapis.com/v1beta/models/", model, ":generateContent?key=", api_key)
+  url <- paste0(
+    "https://generativelanguage.googleapis.com/v1beta/models/",
+    model,
+    ":generateContent?key=",
+    api_key
+  )
 
   # Extract system instruction if present
   system_instruction <- NULL
@@ -578,10 +605,13 @@ use_gemini_llm <- function(
       system_instruction <- msg$content
     } else {
       role <- if (msg$role == "assistant") "model" else msg$role
-      other_messages <- append(other_messages, list(list(
-        role = role,
-        parts = list(text = msg$content)
-      )))
+      other_messages <- append(
+        other_messages,
+        list(list(
+          role = role,
+          parts = list(text = msg$content)
+        ))
+      )
     }
   }
 
@@ -599,7 +629,12 @@ use_gemini_llm <- function(
 
   # Check if the response should be in JSON format
   force_json <- !purrr::pluck(
-    body, "response_format", "type", .default = FALSE) %in% FALSE
+    body,
+    "response_format",
+    "type",
+    .default = FALSE
+  ) %in%
+    FALSE
 
   # Add parameters to the body if present
   formatted_body$generation_config <- list(
@@ -609,7 +644,8 @@ use_gemini_llm <- function(
     topK = body$top_k,
     #candidateCount = body$params$n, # Not supported yet, produces empty answer
     response_mime_type = if (force_json) "application/json" else NULL
-  ) |> purrr::compact()
+  ) |>
+    purrr::compact()
 
   # Prepare the request
   trial <- 1
@@ -628,7 +664,10 @@ use_gemini_llm <- function(
 
     # Parse and adjust the response format to be compatible with prompt_llm
     parsed_response <- httr::content(
-      response, as = "parsed", encoding = "UTF-8")
+      response,
+      as = "parsed",
+      encoding = "UTF-8"
+    )
 
     if (parsed_response$candidates[[1]]$finishReason != "RECITATION") {
       break
@@ -658,7 +697,8 @@ use_gemini_llm <- function(
 
   # Transform the adjusted response back into an httr response object
   response$content <- charToRaw(
-    jsonlite::toJSON(adjusted_response, auto_unbox = TRUE))
+    jsonlite::toJSON(adjusted_response, auto_unbox = TRUE)
+  )
 
   response
 }
@@ -709,16 +749,15 @@ use_gemini_llm <- function(
 #'
 #' @export
 use_mock_llm <- function(
-    body,
-    model = "FakeLLama",
-    response = getOption("llmr_mock_fun_response", "Test successful!"),
-    error_msg = NULL,
-    log_request = getOption("llmr_log_requests", TRUE),
-    status = getOption("llmr_mock_fun_status", 200),
-    retry_after = getOption("llmr_mock_fun_retry_after", 1),
-    simul_delay = getOption("llmr_mock_fun_simul_delay", .05)
+  body,
+  model = "FakeLLama",
+  response = getOption("llmr_mock_fun_response", "Test successful!"),
+  error_msg = NULL,
+  log_request = getOption("llmr_log_requests", TRUE),
+  status = getOption("llmr_mock_fun_status", 200),
+  retry_after = getOption("llmr_mock_fun_retry_after", 1),
+  simul_delay = getOption("llmr_mock_fun_simul_delay", .05)
 ) {
-
   # Simulate a delay in the response
   Sys.sleep(simul_delay)
 
@@ -779,16 +818,18 @@ use_mock_llm <- function(
 
   response <- list(
     url = "http://www.fakellama.com",
-    status_code = as.integer(status),  # Ensure status_code is integer
+    status_code = as.integer(status), # Ensure status_code is integer
     headers = headers,
     content = charToRaw(
       jsonlite::toJSON(
-        response_content, auto_unbox = TRUE))  # Encode content as raw vector
+        response_content,
+        auto_unbox = TRUE
+      )
+    ) # Encode content as raw vector
   )
 
   # Transform the response into a response object
   class(response) <- "response"
 
   response
-
 }
