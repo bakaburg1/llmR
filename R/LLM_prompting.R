@@ -238,7 +238,7 @@ prompt_llm <- function(
       parsed$usage,
       paste(
         "Params:",
-        jsonlite::toJSON(params, auto_unbox = T),
+        jsonlite::toJSON(params, auto_unbox = TRUE),
         "\nGeneration time:",
         format_timediff(elapsed),
         "\nPrompt tokens:",
@@ -349,7 +349,9 @@ prompt_llm <- function(
       } else {
         stop("The process has been stopped.")
       }
-    } else ans_content
+    } else {
+      ans_content
+    }
   })
 
   # Store the interaction in the session history
@@ -401,7 +403,7 @@ use_openai_llm <- function(
     message("Interrogating OpenAI: ", model, "...")
   }
 
-  body$model = model
+  body$model <- model
 
   # Prepare the request
   httr::POST(
@@ -532,7 +534,7 @@ use_custom_llm <- function(
   }
 
   if (!is.null(model)) {
-    body$model = model
+    body$model <- model
   }
 
   # Prepare the request
@@ -783,9 +785,9 @@ use_mock_llm <- function(
   # Add error message if present
   if (!is.null(error_msg)) {
     if (is.list(error_msg)) {
-      response_content$error = error_msg
+      response_content$error <- error_msg
     } else {
-      response_content$error = list(message = error_msg)
+      response_content$error <- list(message = error_msg)
     }
   }
 
@@ -793,10 +795,10 @@ use_mock_llm <- function(
 
   if (status == 429) {
     message("Simulating error: 429")
-    headers$`retry-after` = retry_after
+    headers$`retry-after` <- retry_after
 
     if (is.null(response_content$error)) {
-      response_content$error = list(message = "Mock rate limit error.")
+      response_content$error <- list(message = "Mock rate limit error.")
     }
   }
 
@@ -804,7 +806,7 @@ use_mock_llm <- function(
     message("Simulating error: 400")
 
     if (is.null(response_content$error)) {
-      response_content$error = list(message = "Mock general error.")
+      response_content$error <- list(message = "Mock general error.")
     }
   }
 
@@ -812,7 +814,7 @@ use_mock_llm <- function(
     message("Simulating error: 500")
 
     if (is.null(response_content$error)) {
-      response_content$error = list(message = "Mock server error.")
+      response_content$error <- list(message = "Mock server error.")
     }
   }
 
