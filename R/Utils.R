@@ -228,6 +228,9 @@ remove_session_data <- function(id = NULL) {
 #'   accept only one model, while others do not require a model to be specified.
 #' @param api_version The version of the API to use (only for "azure" api types
 #'   for now)
+#' @param parameters A list of default parameters to use with this model. These
+#'   parameters will be used as defaults in prompt_llm() and can be overridden
+#'   by parameters passed directly to prompt_llm().
 #'
 #' @return NULL
 #'
@@ -238,7 +241,8 @@ record_llmr_model <- function(
   endpoint = NULL,
   api_key = NULL,
   model = NULL,
-  api_version = NULL
+  api_version = NULL,
+  parameters = NULL
 ) {
   provider <- match.arg(provider)
 
@@ -247,7 +251,7 @@ record_llmr_model <- function(
 
   # Store model data
   cur_specs[[label]] <- mget(
-    c("provider", "endpoint", "api_key", "model", "api_version")
+    c("provider", "endpoint", "api_key", "model", "api_version", "parameters")
   )
 
   # Store the options
@@ -324,6 +328,7 @@ set_llmr_model <- function(
 #'     \item api_key: The API key to use for the provider
 #'     \item model: The default model to use for the provider
 #'     \item api_version: The version of the API to use (only for certain providers)
+#'     \item parameters: A list of default parameters to use with this model
 #'   }
 #'
 #' @examples

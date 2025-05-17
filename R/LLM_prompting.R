@@ -123,8 +123,8 @@ process_messages <- function(messages) {
 #' @param provider The provider of the language model. Default is set by the
 #'   `llmr_llm_provider` option. Supported providers include "openai", "azure",
 #'   "gemini", and "custom".
-#' @param params Additional parameters for the language model request. Defaults
-#'   to an empty list.
+#' @param params Additional parameters for the language model request. These
+#'   will override any default parameters stored with the model specification.
 #' @param force_json A boolean to force the response in JSON format. Default is
 #'   FALSE. Note: This is not supported by all providers.
 #' @param log_request A boolean to log the request time. Default is set by the
@@ -176,6 +176,19 @@ prompt_llm <- function(
       "You can use the following option to set it globally:\n",
       "llmr_llm_provider."
     )
+  }
+
+  # Get the current model specifications
+  current_model <- getOption("llmr_current_model")
+  if (!is.null(current_model)) {
+    stored_models <- getOption("llmr_stored_models", list())
+    model_spec <- stored_models[[current_model]]
+    
+    # Merge stored parameters with provided ones, with provided ones taking
+    # precedence
+    if (!is.null(model_spec$parameters)) {
+      params <- utils::modifyList(model_spec$parameters, params)
+    }
   }
 
   # Prepare the body of the request and merge with default
@@ -230,15 +243,18 @@ prompt_llm <- function(
 
   if (log_request) {
     if (force_json) {
-      params$response_format <- "JSON"
+      body$response_format <- "JSON"
     }
 
     # Log information about the generated response
+    # Extract parameters from body, excluding messages
+    log_params <- body[setdiff(names(body), "messages")]
+    
     with(
       parsed$usage,
       paste(
         "Params:",
-        jsonlite::toJSON(params, auto_unbox = TRUE),
+        jsonlite::toJSON(log_params, auto_unbox = TRUE),
         "\nGeneration time:",
         format_timediff(elapsed),
         "\nPrompt tokens:",
