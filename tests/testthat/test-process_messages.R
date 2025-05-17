@@ -9,8 +9,13 @@ test_that("process_messages handles single message", {
 test_that("process_messages handles named vector", {
   msgs <- c(system = "Welcome", user = "Hello")
   result <- process_messages(msgs)
-  expect_equal(result, list(list(role = "system", content = "Welcome"),
-                            list(role = "user", content = "Hello")))
+  expect_equal(
+    result,
+    list(
+      list(role = "system", content = "Welcome"),
+      list(role = "user", content = "Hello")
+    )
+  )
 })
 
 test_that("process_messages handles invalid vector format", {
@@ -26,7 +31,10 @@ test_that("process_messages handles correctly formatted list", {
 
 test_that("process_messages handles invalid list format", {
   msgs <- list(list(role = "wrong", content = "Test"))
-  expect_error(process_messages(msgs), "Message is neither a valid vector nor a valid list.")
+  expect_error(
+    process_messages(msgs),
+    "Message is neither a valid vector nor a valid list."
+  )
 })
 
 test_that("process_messages handles list of messages", {
@@ -43,7 +51,10 @@ test_that("process_messages handles invalid list format", {
     list(wrong = "Invalid message"),
     list(role = "user", content = "User message")
   )
-  expect_error(process_messages(msgs), "Message is neither a valid vector nor a valid list.")
+  expect_error(
+    process_messages(msgs),
+    "Message is neither a valid vector nor a valid list."
+  )
 })
 
 # Edge case: Empty input

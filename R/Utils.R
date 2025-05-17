@@ -25,7 +25,7 @@ format_timediff <- function(td, precision = 3) {
 #'
 #' @export
 set_session_id <- function(
-    session_id = NULL
+  session_id = NULL
 ) {
   if (is.null(session_id)) {
     session_id <- paste0("#", as.numeric(Sys.time()))
@@ -55,45 +55,83 @@ set_session_id <- function(
 #' @export
 #'
 store_llm_session_data <- function(
-    messages,
-    parameters = NULL,
-    response,
-    usage = NULL,
-    processing_time = NULL,
-    provider = getOption("llmr_provider", NULL),
-    model = getOption("llmr_model", NULL),
-    session_id = getOption("llmr_session_id", NULL)
+  messages,
+  parameters = NULL,
+  response,
+  usage = NULL,
+  processing_time = NULL,
+  provider = getOption("llmr_provider", NULL),
+  model = getOption("llmr_model", NULL),
+  session_id = getOption("llmr_session_id", NULL)
 ) {
-
   # If no session ID exist yet, generate a new one
   # Ensure a session ID exists
   session_id <- session_id %||% set_session_id()
 
   # Extract the number of tokens generated and the input tokens
-  input_tokens <- usage$prompt_tokens
-  output_tokens <- usage$completion_tokens
+  # Safely handle if usage is NULL, defaulting tokens to NA_integer_
+  input_tokens <- if (is.null(usage)) NA_integer_ else usage$prompt_tokens
+  output_tokens <- if (is.null(usage)) NA_integer_ else usage$completion_tokens
 
-  # Extract the processing time as seconds
-  if (inherits(processing_time, "difftime")) {
-    processing_time <- as.numeric(processing_time, "secs")
-  }
-  if (is.na(as.numeric(processing_time))) {
-    stop(
-      "Processing time should be either a number of seconds or ",
-      "a 'difftime' object")
-  }
+  # Extract the processing time as seconds and calculate generation speed
+  if (is.null(processing_time)) {
+    # If processing_time is NULL, it means not provided.
+    # Store NA for processing_time and gen_speed.
+    processing_time <- NA_real_
+    gen_speed <- NA_real_
+  } else {
+    # processing_time was provided. Convert if difftime.
+    if (inherits(processing_time, "difftime")) {
+      processing_time <- as.numeric(processing_time, units = "secs")
+    }
 
-  # Calculate the generation speed
-  gen_speed <- output_tokens/processing_time
+    # Validate the (potentially converted) processing_time.
+    # At this point, processing_time is not NULL.
+    # as.numeric() will handle various types; we check if it results in NA.
+    numeric_processing_time <- as.numeric(processing_time)
+
+    if (is.na(numeric_processing_time)) {
+      stop(
+        "Processing time, if provided, should be a number of seconds or ",
+        "a 'difftime' object. Received an invalid value that resulted in NA."
+      )
+    }
+
+    # Update processing_time to its valid numeric form for storage
+    processing_time <- numeric_processing_time
+
+    # Calculate generation speed
+    if (is.na(output_tokens) || is.na(processing_time)) {
+      gen_speed <- NA_real_
+    } else if (processing_time == 0) {
+      # Handle division by zero: speed is Inf if tokens > 0, 0 if tokens == 0,
+      # NaN if tokens < 0 (unlikely) Or, consistently return NA or Inf. Inf
+      # seems informative here.
+      gen_speed <- if (output_tokens == 0) 0 else Inf
+    } else {
+      gen_speed <- output_tokens / processing_time
+    }
+  }
 
   # Get the current timestamp
   ts <- Sys.time()
 
   # Store the data in a list, named by the timestamp
   new_session_data <- list(mget(
-    c("ts", "messages", "parameters", "response", "input_tokens",
-      "output_tokens", "processing_time", "gen_speed", "provider", "model"),
-  )) |> stats::setNames(ts)
+    c(
+      "ts",
+      "messages",
+      "parameters",
+      "response",
+      "input_tokens",
+      "output_tokens",
+      "processing_time",
+      "gen_speed",
+      "provider",
+      "model"
+    )
+  )) |>
+    stats::setNames(ts)
 
   # Get the current session data
   current_session_data <- getOption("llmr_session_data", list())
@@ -105,7 +143,9 @@ store_llm_session_data <- function(
 
   # Append the new data to the session data
   current_session_data[[session_id]] <- append(
-    current_session_data[[session_id]], new_session_data)
+    current_session_data[[session_id]],
+    new_session_data
+  )
 
   # Store the updated session data
   options(llmr_session_data = current_session_data)
@@ -129,7 +169,17 @@ get_session_id <- function() {
 #' @param id The session ID to retrieve the data for. If not provided, all
 #'   session data will be returned.
 #'
-#' @return A list with the session data or a list of lists of session data.
+#' @return A list with the session data for the specified ID, or a list of lists
+#'   containing all session data if no ID is provided. Each session data entry
+#'   contains information about the messages, parameters, response, token usage,
+#'   processing time, provider, and model used in the interaction.
+#'
+#' @examples
+#' # Get data for a specific session
+#' session_data <- get_session_data("#12345")
+#'
+#' # Get all session data
+#' all_data <- get_session_data()
 #'
 #' @export
 get_session_data <- function(id = NULL) {
@@ -177,8 +227,13 @@ remove_session_data <- function(id = NULL) {
     }
 
     if (!(id %in% names(llmr_session_data))) {
-      warning("Session ID '", id, "' not present in session history.",
-      call. = FALSE, immediate. = TRUE)
+      warning(
+        "Session ID '",
+        id,
+        "' not present in session history.",
+        call. = FALSE,
+        immediate. = TRUE
+      )
       return()
     }
 
@@ -191,9 +246,8 @@ remove_session_data <- function(id = NULL) {
 #'
 #' Store the specifications for a language model in the global options.
 #'
-#' @param provider The provider name under which to store the model
-#'   specifications.
-#' @param api_type The type of API used by the provider (custom, openai, azure,
+#' @param label A label under which to store the model specification.
+#' @param provider The provider of the API (custom, openai, azure,
 #'   or gemini).
 #' @param endpoint The API endpoint to use for the provider.
 #' @param api_key The API key to use for the provider.
@@ -201,27 +255,30 @@ remove_session_data <- function(id = NULL) {
 #'   accept only one model, while others do not require a model to be specified.
 #' @param api_version The version of the API to use (only for "azure" api types
 #'   for now)
+#' @param parameters A list of default parameters to use with this model. These
+#'   parameters will be used as defaults in prompt_llm() and can be overridden
+#'   by parameters passed directly to prompt_llm().
 #'
 #' @return NULL
 #'
 #' @export
 record_llmr_model <- function(
-  provider,
-  api_type = c("custom", "openai", "azure", "gemini"),
+  label,
+  provider = c("custom", "openai", "azure", "gemini"),
   endpoint = NULL,
   api_key = NULL,
   model = NULL,
-  api_version = NULL
+  api_version = NULL,
+  parameters = NULL
 ) {
-
-  api_type <- match.arg(api_type)
+  provider <- match.arg(provider)
 
   # Get current stored model specifications
   cur_specs <- getOption("llmr_stored_models", list())
 
-  # Store model data
-  cur_specs[[provider]] <- mget(
-    c("api_type", "endpoint", "api_key", "model", "api_version")
+  # Store model data
+  cur_specs[[label]] <- mget(
+    c("provider", "endpoint", "api_key", "model", "api_version", "parameters")
   )
 
   # Store the options
@@ -231,36 +288,39 @@ record_llmr_model <- function(
 #' Set the current LLMR model
 #'
 #' This function allows you to set the current LLMR model to use for subsequent
-#' operations. It retrieves the stored model specifications for the given
-#' provider and updates the global options accordingly.
+#' operations. It retrieves the stored model specifications using the label
+#' under which it is stored and updates the global options accordingly.
 #'
-#' @param provider The provider for which to set the current model.
+#' @param label The label to choose a model among the stored ones.
 #' @param model An optional model to override the default model for the
-#'  provider, if any.
+#'   provider, if any.
 #'
 #' @return Invisibly, the updated global options.
 #'
 #' @export
 set_llmr_model <- function(
-  provider,
+  label,
   model = NULL
 ) {
-
   all_models <- getOption("llmr_stored_models", list())
 
   if (length(all_models) == 0) {
-    warning("No models have been stored yet.",
-            call. = FALSE, immediate. = TRUE)
+    warning("No models have been stored yet.", call. = FALSE, immediate. = TRUE)
     return(invisible())
   }
 
-  if (!(provider %in% names(all_models))) {
-    warning("No stored model for provider '", provider, "'.",
-            call. = FALSE, immediate. = TRUE)
+  if (!(label %in% names(all_models))) {
+    warning(
+      "No stored model specification under label '",
+      label,
+      "'.",
+      call. = FALSE,
+      immediate. = TRUE
+    )
     return(invisible())
   }
 
-  this_model <- all_models[[provider]]
+  this_model <- all_models[[label]]
 
   if (!is.null(model)) {
     this_model$model <- model
@@ -268,38 +328,121 @@ set_llmr_model <- function(
 
   # Set current model
   options(
+    llmr_current_model = label,
     llmr_model = this_model$model,
     llmr_endpoint = this_model$endpoint,
-    llmr_llm_provider = this_model$api_type,
+    llmr_llm_provider = this_model$provider,
     llmr_api_key = this_model$api_key,
     llmr_api_version = this_model$api_version
   )
 }
 
+#' Get the current LLMR model details
+#'
+#' This function retrieves the details of the currently active LLMR model or a
+#' specified model. It returns a list containing the model specifications that
+#' were set using the set_llmr_model() function.
+#'
+#' @param label The label of the model to retrieve. If NULL (default), it uses
+#'   the currently set model as specified by the `llmr_current_model` option.
+#'
+#' @return A named list containing the model specifications for the requested
+#'   label, or NULL if no model is found. The list includes the following
+#'   elements:
+#'   \itemize{
+#'     \item provider: The provider of the API (e.g., "custom", "openai", "azure", "gemini")
+#'     \item endpoint: The API endpoint to use for the provider
+#'     \item api_key: The API key to use for the provider
+#'     \item model: The default model to use for the provider
+#'     \item api_version: The version of the API to use (only for certain providers)
+#'     \item parameters: A list of default parameters to use with this model
+#'   }
+#'
+#' @examples
+#' # Get details of the current model
+#' current_model <- get_llmr_model()
+#'
+#' # Get details of a specific model
+#' openai_model <- get_llmr_model("openai")
+#'
+#' @export
+get_llmr_model <- function(
+  label = getOption("llmr_current_model", NULL)
+) {
+  stored_models <- getOption("llmr_stored_models", list())
+
+  if (length(stored_models) == 0) {
+    warning("No models have been stored yet.", call. = FALSE, immediate. = TRUE)
+    return(invisible())
+  }
+
+  if (is.null(label) && is.null(getOption("llmr_current_model"))) {
+    warning(
+      "No current model has been set yet.",
+      call. = FALSE,
+      immediate. = TRUE
+    )
+    return(invisible())
+  }
+
+  if (!is.null(label) && !(label %in% names(stored_models))) {
+    warning(
+      "No stored model specification under label '",
+      label,
+      "'.",
+      call. = FALSE,
+      immediate. = TRUE
+    )
+    return(invisible())
+  }
+
+  stored_models[label]
+}
+
+#' Sanitize JSON output
+#'
+#' This function takes a string of JSON output and applies a series of sanitization
+#' steps to remove leading/trailing whitespace, extra spaces, backslashes before
+#' quotes, and other formatting issues. It is intended to be used to clean up
+#' JSON output before further processing.
+#'
+#' @param x A string of JSON output to be sanitized.
+#' @return The sanitized JSON output.
+#' @examples
+#' json_output <- '```json\n{\n  "key": "value"\n}```'
+#' sanitized <- llmR:::sanitize_json_output(json_output)
+#' print(sanitized)
+#' # Output: {"key": "value"}
 sanitize_json_output <- function(x) {
   before <- x
-  
+
   # Remove leading and trailing whitespace
   x <- trimws(x)
-  
+
   # Remove newlines and extra spaces outside of quoted strings
   x <- gsub("\\s+(?=([^\"]*\"[^\"]*\")*[^\"]*$)", " ", x, perl = TRUE)
-  
+
   # Remove backslashes before quotes
   x <- gsub("\\\\(?=\")", "", x, perl = TRUE)
-  
+
   # Apply sanitization steps
   x <- gsub("\\n+", "\n", x)
   x <- gsub("\\s+", " ", x)
   x <- gsub(
-    "^```(json)?\\n?", "", x,
-    ignore.case = TRUE)
+    "^```(json)?\\n?",
+    "",
+    x,
+    ignore.case = TRUE
+  )
   x <- gsub("```\\n*$", "", x)
-  
+
   if (before != x) {
-    warning("JSON output needed sanitization!",
-    call. = FALSE, immediate. = FALSE)
+    warning(
+      "JSON output needed sanitization!",
+      call. = FALSE,
+      immediate. = FALSE
+    )
   }
-  
+
   x
 }

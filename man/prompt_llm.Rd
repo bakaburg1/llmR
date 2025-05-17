@@ -7,7 +7,8 @@
 prompt_llm(
   messages = NULL,
   provider = getOption("llmr_llm_provider"),
-  params = list(temperature = 0),
+  params = list(),
+  model_specification = NULL,
   force_json = FALSE,
   log_request = getOption("llmr_log_requests", TRUE),
   session_id = get_session_id() \%||\% set_session_id(),
@@ -23,8 +24,13 @@ details.}
 \code{llmr_llm_provider} option. Supported providers include "openai", "azure",
 "gemini", and "custom".}
 
-\item{params}{Additional parameters for the language model request. Defaults
-to a list with \code{temperature = 0}.}
+\item{params}{Additional parameters for the language model request. These
+will override any default parameters stored with the model specification.}
+
+\item{model_specification}{Either a model label (string) that has been
+registered with \code{record_llmr_model()}, or a complete model specification
+list containing the same fields as \code{record_llmr_model()}. If provided, this
+overrides the current model set by \code{set_llmr_model()}.}
 
 \item{force_json}{A boolean to force the response in JSON format. Default is
 FALSE. Note: This is not supported by all providers.}
@@ -37,9 +43,6 @@ new one will be created.}
 
 \item{...}{Additional arguments passed to the language model provider
 functions.}
-}
-\value{
-The content of the message from the language model response.
 }
 \description{
 This function sends requests to a specified language model provider and
@@ -61,10 +64,32 @@ output.
 
 \examples{
 \dontrun{
-response <- prompt_llm(messages = c(user = "Hello there!"), provider = "openai")
+# First record a model specification
+record_llmr_model(
+  label = "openai",
+  provider = "openai",
+  model = "gpt-4",
+  api_key = "your_api_key",
+  parameters = list(temperature = 0.7)
+)
+
+# Then use the registered model label
 response <- prompt_llm(
+  # Shorthand message format
+  messages = c(user = "Hello there!"), # or simply "Hello there!"
+  model_specification = "openai"
+)
+
+# Using a complete model specification
+response <- prompt_llm(
+  # Canonical message format
   messages = list(list(role = "user", content = "What's the weather?")),
-  params = list(temperature = 0.7)
+  model_specification = list(
+    provider = "openai",
+    model = "gpt-4",
+    api_key = "your_api_key",
+    parameters = list(temperature = 0.7)
+  )
 )
 }
 

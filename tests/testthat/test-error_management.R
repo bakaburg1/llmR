@@ -4,10 +4,14 @@
 
 test_that("is_rate_limit_exceeded returns TRUE when rate limit is exceeded", {
   response <- use_mock_llm(status = 429)
-  expect_warning(failure <- is_rate_limit_exceeded(
-    response,
-    wait = FALSE, log_request = FALSE
-  ), "Rate limit exceeded")
+  expect_warning(
+    failure <- is_rate_limit_exceeded(
+      response,
+      wait = FALSE,
+      log_request = FALSE
+    ),
+    "Rate limit exceeded"
+  )
   expect_true(failure)
 })
 
@@ -17,13 +21,15 @@ test_that("is_rate_limit_exceeded waits for at least the specified time when rat
   expect_warning(
     failure <- is_rate_limit_exceeded(
       response,
-      wait = TRUE, log_request = FALSE
+      wait = TRUE,
+      log_request = FALSE
     ),
     "Rate limit exceeded"
   )
   end_time <- Sys.time()
   expect_gte(
-    as.numeric(difftime(end_time, start_time, units = "secs")), .5
+    as.numeric(difftime(end_time, start_time, units = "secs")),
+    .5
   )
 })
 
@@ -37,16 +43,23 @@ test_that("is_rate_limit_exceeded logs warning and error messages", {
   max_attempts <- 3
 
   response <- use_mock_llm(
-    status = 429, retry_after = 0.05, simul_delay = 0.05)
+    status = 429,
+    retry_after = 0.05,
+    simul_delay = 0.05
+  )
 
   fn <- purrr::quietly(purrr::safely(is_rate_limit_exceeded))
 
   iter <- 1
   prev <- getOption("llmr_attempt_number")
 
-  while(iter <= max_attempts + 1) {
-    res <- fn(response, wait = FALSE,
-              log_request = TRUE, max_attempts = max_attempts)
+  while (iter <= max_attempts + 1) {
+    res <- fn(
+      response,
+      wait = FALSE,
+      log_request = TRUE,
+      max_attempts = max_attempts
+    )
     iter <- iter + 1
 
     # Test that "llmr_attempt_number" gets increased. If the maximum number of
@@ -55,15 +68,22 @@ test_that("is_rate_limit_exceeded logs warning and error messages", {
     prev <- getOption("llmr_attempt_number")
   }
 
-  expect_setequal(res$warnings, c(
-    "Rate limit exceeded. Waiting before retrying.",
-    "Mock rate limit error."
-  ))
+  expect_setequal(
+    res$warnings,
+    c(
+      "Rate limit exceeded. Waiting before retrying.",
+      "Mock rate limit error."
+    )
+  )
 
   expect_setequal(
     res$result$error$message,
-    paste0("Maximum number of attempts (", max_attempts,
-           ") on `retry` error reached."))
+    paste0(
+      "Maximum number of attempts (",
+      max_attempts,
+      ") on `retry` error reached."
+    )
+  )
 })
 
 test_that("is_rate_limit_exceeded returns FALSE when status code is not 429", {
@@ -80,7 +100,8 @@ test_that("stop_on_response_error stops execution on HTTP error", {
 
   expect_error(
     stop_on_response_error(response),
-    "Error in LLM request \\(500\\): Mock server error.")
+    "Error in LLM request \\(500\\): Mock server error."
+  )
 })
 
 test_that("stop_on_response_error stops for errors in the response content but not the HTTP code", {
@@ -91,7 +112,8 @@ test_that("stop_on_response_error stops for errors in the response content but n
 
   expect_error(
     stop_on_response_error(response),
-    "Error in LLM request: Mocked error message.")
+    "Error in LLM request: Mocked error message."
+  )
 })
 
 test_that("stop_on_response_error does not stop execution if no HTTP error", {
@@ -116,5 +138,3 @@ test_that("stop_on_no_output does not stop execution when tokens were generated"
   parsed <- list(usage = list(completion_tokens = 10))
   expect_silent(stop_on_no_output(parsed))
 })
-
-

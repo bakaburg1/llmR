@@ -21,9 +21,16 @@ test_that("prompt_llm sanitizes non-compliant JSON output", {
     ),
     {
       # Call prompt_llm with the mock LLM and test that a warning was issued
-      expect_warning({
-        result <- prompt_llm("Generate JSON", provider = "mock", force_json = TRUE)
-      }, "JSON output needed sanitization!")
+      expect_warning(
+        {
+          result <- prompt_llm(
+            "Generate JSON",
+            provider = "mock",
+            force_json = TRUE
+          )
+        },
+        "JSON output needed sanitization!"
+      )
 
       # Parse the result and compare with the original list
       parsed_result <- jsonlite::fromJSON(result)
