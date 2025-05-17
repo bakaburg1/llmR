@@ -206,4 +206,119 @@ test_that("prompt_llm works without current model", {
       params = list(temperature = 0.7)
     )
   )
+})
+
+test_that("prompt_llm accepts model specification label", {
+  # Record a model with parameters
+  record_llmr_model(
+    label = "test-model",
+    provider = "custom",
+    endpoint = "http://test.endpoint",
+    model = "test-model",
+    api_key = "test-key",
+    parameters = list(
+      temperature = 0.7,
+      max_tokens = 1000
+    )
+  )
+
+  # Store the request parameters for inspection
+  request_params <- NULL
+  request_url <- NULL
+  request_headers <- NULL
+  
+  withr::with_options(
+    list(llmr_log_requests = TRUE),
+    {
+      testthat::local_mocked_bindings(
+        POST = function(url, body, add_headers, ...) {
+          request_url <<- url
+          request_params <<- jsonlite::fromJSON(body)
+          request_headers <<- add_headers
+          use_mock_llm(response = "Test response")
+        },
+        .package = "httr"
+      )
+
+      # Call with model specification label
+      prompt_llm("Hello", model_specification = "test-model")
+      expect_equal(request_url, "http://test.endpoint")
+      expect_equal(request_params$temperature, 0.7)
+      expect_equal(request_params$max_tokens, 1000)
+      expect_equal(request_params$model, "test-model")
+      expect_true(any(grepl("test-key", unlist(request_headers))))
+
+      # Should error with invalid model specification label
+      expect_error(
+        prompt_llm("Hello", model_specification = "invalid-model"),
+        "No stored model specification under label 'invalid-model'"
+      )
+    }
+  )
+})
+
+test_that("prompt_llm accepts complete model specification", {
+  # Store the request parameters for inspection
+  request_params <- NULL
+  request_url <- NULL
+  request_headers <- NULL
+  
+  withr::with_options(
+    list(llmr_log_requests = TRUE),
+    {
+      testthat::local_mocked_bindings(
+        POST = function(url, body, add_headers, ...) {
+          request_url <<- url
+          request_params <<- jsonlite::fromJSON(body)
+          request_headers <<- add_headers
+          use_mock_llm(response = "Test response")
+        },
+        .package = "httr"
+      )
+
+      # Call with complete model specification
+      prompt_llm(
+        "Hello",
+        model_specification = list(
+          provider = "custom",
+          endpoint = "http://custom.endpoint",
+          model = "custom-model",
+          api_key = "custom-key",
+          parameters = list(
+            temperature = 0.8,
+            max_tokens = 2000
+          )
+        )
+      )
+      expect_equal(request_url, "http://custom.endpoint")
+      expect_equal(request_params$temperature, 0.8)
+      expect_equal(request_params$max_tokens, 2000)
+      expect_equal(request_params$model, "custom-model")
+      expect_true(any(grepl("custom-key", unlist(request_headers))))
+
+      # Parameters in model specification can be overridden
+      prompt_llm(
+        "Hello",
+        model_specification = list(
+          provider = "custom",
+          endpoint = "http://custom.endpoint",
+          model = "custom-model",
+          api_key = "custom-key",
+          parameters = list(
+            temperature = 0.8,
+            max_tokens = 2000
+          )
+        ),
+        params = list(temperature = 0.9)
+      )
+      expect_equal(request_params$temperature, 0.9)
+      expect_equal(request_params$max_tokens, 2000)
+
+      # Should error with invalid model specification type
+      expect_error(
+        prompt_llm("Hello", model_specification = 123),
+        "'model_specification' must be either a character string \\(label\\) or a list \\(specification\\)"
+      )
+    }
+  )
 }) 
