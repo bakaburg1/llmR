@@ -102,7 +102,7 @@ store_llm_session_data <- function(
       "gen_speed",
       "provider",
       "model"
-    ),
+    )
   )) |>
     stats::setNames(ts)
 
