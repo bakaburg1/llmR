@@ -1,3 +1,27 @@
+# llmR 1.4.0
+
+## Enhance model management: default parameters & specification labels in prompt_llm
+
+#### Enhancements
+- Support per-model default parameters in record_llmr_model(): add a new `parameters` field so users can define defaults (e.g. `temperature`, `max_tokens`) that automatically merge into `prompt_llm()` calls (Commit: b964982593bf15b26f8458c75cb65769adb108e8).
+- Add `model_specification` argument to prompt_llm(): accept either a registered model label or a full specification list, overriding the global model (Commit: d212ce8bfdff511e3adb88aa73113a2dadce9d88).
+- Merge stored model defaults and explicit `params` in prompt_llm(): stored defaults are combined with, and can be overridden by, call-level parameters; Azure deployments and endpoints are now mapped correctly (Commit: d212ce8bfdff511e3adb88aa73113a2dadce9d88).
+- Remove implicit default temperature: `prompt_llm()` no longer injects `temperature = 0` by default; defaults must come from model specs or explicit `params` (Commit: 773e2fe66e387082f2f699ac7daff1bf0544d15e).
+- Comprehensive tests for model specification handling: new `test-model_specs.R` suite validates both label-based and full list specifications, error cases, and parameter overrides (Commit: f89714fee2a48a415c8c7fab514c13509aeddb9e).
+
+#### Fixes
+- Include HTTP status codes in LLM error messages and warnings for clarity, and reset retry counters correctly on rate-limit errors (Commits: dfc1e4802d733f620376e3b430e64a27a467df8d, 56c5ec7c7353e7e32cc9ce5950dc91ef4ac4b890).
+- Correct documentation paths (R/utils.R → R/Utils.R) and fix minor doc typos in multiple man pages (Commit: 5dd83b175d7e7b87d544fe7eff5d828df8ffb754).
+- Tighten argument filtering when dispatching to provider functions, with warnings for any unexpected fields.
+
+#### Documentation
+- Update man-pages to document `model_specification`, `parameters`, and new examples in `prompt_llm.Rd`, `record_llmr_model.Rd`, `get_llmr_model.Rd` (Commit: 5dd83b175d7e7b87d544fe7eff5d828df8ffb754).
+- Revise README and NEWS for v1.3.0: describe new model management workflow, update installation snippet (`remotes::install_github()`), and add examples for recording, setting, and using models (Commits: c982d0b268c03dbcbd041ec039b77618acda3e89, 7ea15fe71a501b0e85a57f8ad398019e0549881f).
+- Export new functions in NAMESPACE (`get_llmr_model`, `set_llmr_model`) and align with renamed files (Commit: 838167ce22b24f4bec481ff3f9738286a942ddc8).
+
+#### Summary
+This patch makes LLM model management far more flexible: you can now record per-model defaults, pass a label or full spec to `prompt_llm()`, and override parameters cleanly. A slew of tests, doc updates, and build fixes round out the release.
+
 # llmR 1.3.0
 
 ## llmR: Enhanced Model Management, JSON Sanitization, and Documentation Updates

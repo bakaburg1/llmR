@@ -377,34 +377,74 @@ prompt_llm <- function(
     # Get formal arguments of the llm_fun
     llm_fun_formals <- names(formals(llm_fun))
 
-    # Filter call_args to include only those present in llm_fun_formals or if
-    # llm_fun accepts ...
+    # Arguments from the initial call_args that are valid for llm_fun
     final_call_args <- call_args[names(call_args) %in% llm_fun_formals]
+
+    # Identify arguments passed via ... (extra_args)
+    # These are candidates to be passed if llm_fun has a ... argument
+    potential_dots_args <- extra_args[!names(extra_args) %in% llm_fun_formals]
+
     if ("..." %in% llm_fun_formals) {
-      # Add back any arguments from original call_args that were not in
-      # formals (intended for ...) This assumes ... arguments were not part
-      # of provider_args_from_spec, which is mostly true A cleaner way is to
-      # ensure `extra_args` are only those not already handled. For now, pass
-      # all of call_args if ... is present. This might be too broad. Let's be
-      # more specific: only pass non-formal args from 'extra_args' if '...' is
-      # present
-      potential_dots_args <- extra_args[!names(extra_args) %in% llm_fun_formals]
+      # If llm_fun has ..., add aall potential_dots_args Note: This might
+      # include arguments also explicitly defined in llm_fun_formals if they
+      # were also passed via ..., but R handles duplicate named args correctly
+      # (last one wins). For clarity, we only add those not already covered by
+      # formal names if we want to be strict, but `c()` handles merging by name.
+      # Let's stick to adding only those not already in final_call_args to avoid
+      # confusion. However, the original code was `c(final_call_args,
+      # potential_dots_args)`, which is fine.
       final_call_args <- c(final_call_args, potential_dots_args)
     } else {
-      # If no ..., check for unexpected arguments
-      unexpected_args <- names(call_args)[
-        !names(call_args) %in% llm_fun_formals
-      ]
-      if (length(unexpected_args) > 0) {
-        # This case should ideally be avoided by the specific if/else for
-        # providers above For safety, we'll warn and remove them if they are
-        # not handled by the provider block logic.
-        warning(paste(
-          "Unexpected arguments for provider",
-          provider,
-          ":",
-          paste(unexpected_args, collapse = ", ")
-        ))
+      # If llm_fun does not have ..., check for and warn about unused arguments
+
+      # 1. Arguments from `call_args` (constructed from model_spec, params,
+      # provider logic) that are not in `llm_fun_formals`.
+      unexpected_call_args <- names(call_args)[!names(call_args) %in% llm_fun_formals]
+
+      # 2. Arguments from `extra_args` (passed via ...) that are not in
+      # `llm_fun_formals` (since there's no ... to catch them). These are in
+      # `potential_dots_args`. We only care about these if they are not NULL
+      # (already handled by compact for call_args, but extra_args might contain
+      # them). Filter potential_dots_args for non-NULL values before warning.
+      non_null_potential_dots_args <- purrr::compact(potential_dots_args)
+      discarded_extra_args <- names(non_null_potential_dots_args)
+
+
+      # Combine and make unique
+      all_discarded_args <- unique(c(unexpected_call_args, discarded_extra_args))
+      # We should only warn about arguments that were actually in call_args or
+      # non_null_potential_dots_args. The `unexpected_call_args` are already
+      # from `call_args` (which is compacted). The `discarded_extra_args` are
+      # from `extra_args` after compacting.
+
+      if (length(all_discarded_args) > 0) {
+        # Ensure we are warning about arguments that truly would have been
+        # passed if not for this filtering. Check against original `call_args`
+        # and `extra_args` values.
+
+        # Args from `call_args` that are not formals
+        truly_unexpected_from_call_args <- Filter(
+            function(arg_name) !is.null(call_args[[arg_name]]),
+            unexpected_call_args
+        )
+
+        # Args from `extra_args` that are not formals (and no ...)
+        truly_discarded_from_extra_args <- Filter(
+            function(arg_name) !is.null(extra_args[[arg_name]]),
+            discarded_extra_args # These are already names of non-nulls
+        )
+        
+        final_discarded_arg_names <- unique(
+          c(truly_unexpected_from_call_args, truly_discarded_from_extra_args))
+
+        if (length(final_discarded_arg_names) > 0) {
+          warning(
+            "The following arguments were provided but are not accepted by the '", provider, "' provider function ('", llm_fun_name, "') and will be ignored: ",
+            paste(sQuote(final_discarded_arg_names), collapse = ", "),
+            ". Check the provider function's arguments or use a provider function that accepts '...'.",
+            call. = FALSE, immediate. = TRUE
+          )
+        }
       }
     }
 
@@ -589,10 +629,17 @@ prompt_llm <- function(
   } else {
     # Fallback to options or ... if model_spec was not used. This depends on how
     # `model` was passed or set by options for the specific provider. It might
-    # be in call_args$model or call_args$deployment_id
+    # be in call_args$model or call_args$deployment_id (for Azure).
+    # For Azure, model is deployment_id, and endpoint is resource_name.
+    # For Custom, model is model, and endpoint is endpoint.
+    # The llmr_model option often holds the model name/ID.
+    # The llmr_endpoint option can be a useful fallback if model name is not
+    # captured otherwise, especially for Azure (resource_name) or Custom
+    # (actual endpoint URL).
     logged_model_name <- call_args$model %||%
       call_args$deployment_id %||%
-      getOption("llmr_model")
+      getOption("llmr_model") %||%
+      getOption("llmr_endpoint")
   }
 
   store_llm_session_data(
@@ -870,13 +917,7 @@ use_gemini_llm <- function(
   }
 
   # Check if the response should be in JSON format
-  force_json <- !purrr::pluck(
-    body,
-    "response_format",
-    "type",
-    .default = FALSE
-  ) %in%
-    FALSE
+  force_json <- isTRUE(body$response_format$type != FALSE)
 
   # Add parameters to the body if present
   formatted_body$generation_config <- list(
