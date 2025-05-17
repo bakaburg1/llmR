@@ -125,6 +125,10 @@ process_messages <- function(messages) {
 #'   "gemini", and "custom".
 #' @param params Additional parameters for the language model request. These
 #'   will override any default parameters stored with the model specification.
+#' @param model_specification Either a model label (string) that has been
+#'   registered with `record_llmr_model()`, or a complete model specification
+#'   list containing the same fields as `record_llmr_model()`. If provided, this
+#'   overrides the current model set by `set_llmr_model()`.
 #' @param force_json A boolean to force the response in JSON format. Default is
 #'   FALSE. Note: This is not supported by all providers.
 #' @param log_request A boolean to log the request time. Default is set by the
@@ -133,8 +137,6 @@ process_messages <- function(messages) {
 #'   new one will be created.
 #' @param ... Additional arguments passed to the language model provider
 #'   functions.
-#'
-#' @return The content of the message from the language model response.
 #'
 #' @section Error Handling: The function automatically handles rate limit errors
 #'   and will retry the request after waiting for the specified time. For
@@ -147,14 +149,32 @@ process_messages <- function(messages) {
 #'
 #' @examples
 #' \dontrun{
-#' response <- prompt_llm(
-#'   messages = c(user = "Hello there!"),
-#'   provider = "openai"
+#' # First record a model specification
+#' record_llmr_model(
+#'   label = "openai",
+#'   provider = "openai",
+#'   model = "gpt-4",
+#'   api_key = "your_api_key",
+#'   parameters = list(temperature = 0.7)
 #' )
 #'
+#' # Then use the registered model label
 #' response <- prompt_llm(
+#'   # Shorthand message format
+#'   messages = c(user = "Hello there!"), # or simply "Hello there!"
+#'   model_specification = "openai"
+#' )
+#'
+#' # Using a complete model specification
+#' response <- prompt_llm(
+#'   # Canonical message format
 #'   messages = list(list(role = "user", content = "What's the weather?")),
-#'   params = list(temperature = 0.7)
+#'   model_specification = list(
+#'     provider = "openai",
+#'     model = "gpt-4",
+#'     api_key = "your_api_key",
+#'     parameters = list(temperature = 0.7)
+#'   )
 #' )
 #' }
 #'
@@ -163,6 +183,7 @@ prompt_llm <- function(
   messages = NULL,
   provider = getOption("llmr_llm_provider"),
   params = list(),
+  model_specification = NULL,
   force_json = FALSE,
   log_request = getOption("llmr_log_requests", TRUE),
   session_id = get_session_id() %||% set_session_id(),
@@ -170,86 +191,193 @@ prompt_llm <- function(
 ) {
   messages <- process_messages(messages)
 
-  if (is.null(provider)) {
-    stop(
-      "Language model provider is not set. ",
-      "You can use the following option to set it globally:\n",
-      "llmr_llm_provider."
-    )
-  }
+  # Initialize model_spec to NULL. It will be populated if model_specification
+  # is used, or if a current_model is set via options.
+  model_spec <- NULL
+  provider_args_from_spec <- list()
 
-  # Get the current model specifications
-  current_model <- getOption("llmr_current_model")
-  if (!is.null(current_model)) {
-    stored_models <- getOption("llmr_stored_models", list())
-    model_spec <- stored_models[[current_model]]
-    
-    # Merge stored parameters with provided ones, with provided ones taking
-    # precedence
+  if (!is.null(model_specification)) {
+    if (is.character(model_specification)) {
+      stored_models <- getOption("llmr_stored_models", list())
+      if (!(model_specification %in% names(stored_models))) {
+        stop(
+          "No stored model specification under label '",
+          model_specification,
+          "'."
+        )
+      }
+      model_spec <- stored_models[[model_specification]]
+    } else if (is.list(model_specification)) {
+      model_spec <- model_specification
+    } else {
+      stop("'model_specification' must be either a character string (label) or a list (specification)")
+    }
+
+    # When model_specification is provided, it dictates these primary parameters
+    provider <- model_spec$provider
     if (!is.null(model_spec$parameters)) {
       params <- utils::modifyList(model_spec$parameters, params)
     }
+    
+    # Prepare arguments for the provider function based on model_spec. These
+    # will override anything from getOption() within the provider functions
+    provider_args_from_spec$model <- model_spec$model
+    provider_args_from_spec$api_key <- model_spec$api_key
+    provider_args_from_spec$endpoint <- model_spec$endpoint
+    provider_args_from_spec$api_version <- model_spec$api_version
+    # For Azure compatibility, map model to deployment_id and endpoint to
+    # resource_name
+    if (provider == "azure") {
+      provider_args_from_spec$deployment_id <- model_spec$model
+      provider_args_from_spec$resource_name <- model_spec$endpoint
+      # Remove generic model/endpoint if azure specific ones are present
+      provider_args_from_spec$model <- NULL 
+      provider_args_from_spec$endpoint <- NULL
+    }
+
+  } else {
+    # No model_specification provided, try to use current model from options
+    current_model_label <- getOption("llmr_current_model")
+    if (!is.null(current_model_label)) {
+      stored_models <- getOption("llmr_stored_models", list())
+      if (current_model_label %in% names(stored_models)) {
+        model_spec <- stored_models[[current_model_label]] # For session logging
+        # Merge stored parameters with provided ones
+        if (!is.null(model_spec$parameters)) {
+          params <- utils::modifyList(model_spec$parameters, params)
+        }
+      }
+    }
+    # Provider remains getOption("llmr_llm_provider") or the argument default
+    # Provider functions will use their getOption() defaults for model, api_key etc.
   }
 
-  # Prepare the body of the request and merge with default
-  body <- params
+  if (is.null(provider)) {
+    stop(
+      "Language model provider is not set. ",
+      "You can use set_llmr_model() or provide model_specification."
+    )
+  }
 
+  body <- params
   body$messages <- messages
 
-  # Force the LLM to answer in JSON format (not all models support this)
   if (force_json) {
     body$response_format <- list("type" = "json_object")
   }
 
-  # Map provider to specific function
-  llm_fun <- paste0("use_", provider, "_llm")
-
-  if (!exists(llm_fun, mode = "function")) {
+  llm_fun_name <- paste0("use_", provider, "_llm")
+  if (!exists(llm_fun_name, mode = "function")) {
     stop(
-      "Unsupported LLM provider: ",
-      provider,
+      "Unsupported LLM provider: ", provider,
       "\nYou can set it project-wide using the llmr_llm_provider option."
     )
   }
+  llm_fun <- get(llm_fun_name)
 
-  llm_fun <- get(llm_fun)
+  # Prepare the arguments for the provider function call
+  call_args <- list(body = body)
+  
+  # Add arguments derived from model_specification (if any)
+  # These take precedence and are specific to what the provider function expects
+  # Filter out NULLs from provider_args_from_spec before merging
+  provider_args_from_spec <- purrr::compact(provider_args_from_spec)
 
-  # Try to send the request
+  # Merge ... arguments, giving precedence to those from model_spec
+  # and then to those explicitly passed in ...
+  # This is tricky: ... might contain model, api_key etc. that should be ignored if model_spec provided them.
+  # A safer approach: define what each provider function takes and only pass those.
+
+  # Let's build call_args by respecting model_spec first, then ..., then function defaults
+  # All provider functions take 'log_request'
+  call_args$log_request <- log_request
+
+  # Add specific args based on provider, from provider_args_from_spec or ...
+  # If model_specification was used, provider_args_from_spec contains its details.
+  # Otherwise, provider functions pick up from global options.
+
+  extra_args <- list(...)
+
+  if (provider == "openai") {
+    call_args$model   <- provider_args_from_spec$model %||% extra_args$model %||% getOption("llmr_model")
+    call_args$api_key <- provider_args_from_spec$api_key %||% extra_args$api_key %||% getOption("llmr_api_key")
+  } else if (provider == "azure") {
+    call_args$deployment_id <- provider_args_from_spec$deployment_id %||% extra_args$deployment_id %||% getOption("llmr_model")
+    call_args$resource_name <- provider_args_from_spec$resource_name %||% extra_args$resource_name %||% getOption("llmr_endpoint")
+    call_args$api_key       <- provider_args_from_spec$api_key %||% extra_args$api_key %||% getOption("llmr_api_key")
+    call_args$api_version   <- provider_args_from_spec$api_version %||% extra_args$api_version %||% getOption("llmr_api_version")
+  } else if (provider == "custom") {
+    call_args$endpoint <- provider_args_from_spec$endpoint %||% extra_args$endpoint %||% getOption("llmr_endpoint")
+    call_args$model    <- provider_args_from_spec$model %||% extra_args$model %||% getOption("llmr_model")
+    call_args$api_key  <- provider_args_from_spec$api_key %||% extra_args$api_key %||% getOption("llmr_api_key")
+  } else if (provider == "gemini") {
+    call_args$model   <- provider_args_from_spec$model %||% extra_args$model %||% getOption("llmr_model")
+    call_args$api_key <- provider_args_from_spec$api_key %||% extra_args$api_key %||% getOption("llmr_api_key")
+  } else if (provider == "mock") {
+    call_args$model <- provider_args_from_spec$model %||% extra_args$model %||% "FakeLLama"
+    # Mock specific params from ... if provided
+    if (!is.null(extra_args$response)) call_args$response <- extra_args$response
+    if (!is.null(extra_args$error_msg)) call_args$error_msg <- extra_args$error_msg
+    if (!is.null(extra_args$status)) call_args$status <- extra_args$status
+    if (!is.null(extra_args$retry_after)) call_args$retry_after <- extra_args$retry_after
+    if (!is.null(extra_args$simul_delay)) call_args$simul_delay <- extra_args$simul_delay
+  }
+  
+  # Remove any NULL arguments from call_args to prevent issues with do.call
+  # Especially for parameters that might not be set by options or model_spec
+  call_args <- purrr::compact(call_args)
+
   retry <- FALSE
+  response_obj <- NULL
 
-  while (!exists("response", inherits = FALSE) || retry) {
+  while (is.null(response_obj) || retry) {
     retry <- FALSE
-
     gen_start <- Sys.time()
-    response <- llm_fun(body, ...)
+    
+    # Ensure that only arguments accepted by llm_fun are passed
+    # Get formal arguments of the llm_fun
+    llm_fun_formals <- names(formals(llm_fun))
+    
+    # Filter call_args to include only those present in llm_fun_formals or if llm_fun accepts ...
+    final_call_args <- call_args[names(call_args) %in% llm_fun_formals]
+    if ("..." %in% llm_fun_formals) {
+        # Add back any arguments from original call_args that were not in formals (intended for ...)
+        # This assumes ... arguments were not part of provider_args_from_spec, which is mostly true
+        # A cleaner way is to ensure `extra_args` are only those not already handled.
+        # For now, pass all of call_args if ... is present. This might be too broad.
+        # Let's be more specific: only pass non-formal args from 'extra_args' if '...' is present
+        potential_dots_args <- extra_args[!names(extra_args) %in% llm_fun_formals]
+        final_call_args <- c(final_call_args, potential_dots_args)
+    } else {
+        # If no ..., check for unexpected arguments
+        unexpected_args <- names(call_args)[!names(call_args) %in% llm_fun_formals]
+        if (length(unexpected_args) > 0) {
+            # This case should ideally be avoided by the specific if/else for providers above
+            # For safety, we'll warn and remove them if they are not handled by the provider block logic.
+            warning(paste("Unexpected arguments for provider", provider, ":", paste(unexpected_args, collapse=", ")))
+        }
+    }
+    
+    # Ensure `body` is always the first argument if not explicitly named if provider functions expect it positionally
+    # All current provider functions have `body` as their first named argument.
+    # So `final_call_args` having `body` as a named element is correct.
+
+    response_obj <- do.call(llm_fun, final_call_args)
     gen_stop <- Sys.time()
 
-    # Compute the time taken for the request to be processed
     elapsed <- difftime(gen_stop, gen_start)
-
-    # Check if the query rate limit has been exceeded and wait for the time
-    # specified in the response error message
-    retry <- is_rate_limit_exceeded(response, log_request = log_request)
+    retry <- is_rate_limit_exceeded(response_obj, log_request = log_request)
   }
 
-  # Check for errors in response
-  stop_on_response_error(response)
-
-  # Return the response
-  parsed <- httr::content(response, as = "parsed", encoding = "UTF-8")
-
-  # Raise an error if no tokens were generated
+  stop_on_response_error(response_obj)
+  parsed <- httr::content(response_obj, as = "parsed", encoding = "UTF-8")
   stop_on_no_output(parsed)
 
   if (log_request) {
     if (force_json) {
-      body$response_format <- "JSON"
+      body$response_format <- "JSON" # For logging only
     }
-
-    # Log information about the generated response
-    # Extract parameters from body, excluding messages
     log_params <- body[setdiff(names(body), "messages")]
-    
     with(
       parsed$usage,
       paste(
@@ -269,21 +397,16 @@ prompt_llm <- function(
         "\nTotal tokens:",
         total_tokens
       )
-    ) |>
-      message()
+    ) |> message()
   }
 
-  # Return the response
   llm_answer <- purrr::imap_chr(parsed$choices, \(ans, i) {
     ans_content <- ans$message$content
-
     if (force_json && !jsonlite::validate(ans_content)) {
       ans_content <- sanitize_json_output(ans_content)
     }
-
-    # Manage the case when the answer is cut off due to exceeding the
-    # output token limit
     if (ans$finish_reason == "length") {
+      # ... (incomplete answer handling code remains the same) ...
       i <- if (length(parsed$choices) > 1) paste0(" ", i, " ") else " "
 
       opt_name <- Sys.time()
@@ -346,18 +469,45 @@ prompt_llm <- function(
             content = "continue"
           ))
         )
-
-        ans_new <- prompt_llm(
-          messages_new,
-          force_json = FALSE,
-          params = params,
+        
+        # Prepare arguments for recursive call, ensuring model_specification is passed if used initially
+        recursive_call_args <- list(
+          messages = messages_new,
+          force_json = FALSE, # Usually not forced for continuation
+          params = params, # Pass current params
           log_request = log_request,
           session_id = session_id,
-          provider = provider,
-          ...
+          provider = provider # Provider is already correctly set
         )
+        
+        # If original call used model_specification, pass it along, otherwise provider functions will use options
+        if (!is.null(model_specification)) {
+          recursive_call_args$model_specification <- model_specification
+        } else {
+          # If model_specification was NULL, but ... might have contained model details for specific provider,
+          # we need to pass those. The provider-specific args (model, api_key, etc.) should be passed if they were in `...`.
+          # This part gets tricky; the simplest is to rely on the fact that if model_specification was NULL,
+          # the provider and its params are already set up (either by options or initial ...)
+          # We might need to reconstruct relevant parts of `...` if they are not covered by model_spec/options.
+          # For now, let's assume if model_specification was NULL, the existing provider context (from options or initial ...) is sufficient.
+          # The `extra_args` list (... from parent call) could be passed again.
+          # However, the recursive prompt_llm will again resolve ... based on its own context.
+          # Simplest: if model_specification was used, pass it. Otherwise, let the recursive call use its defaults/options or specific ... args.
+          # The current ... in scope here are for the *current* call, not to be confused with parent's ...
+        }
+        
+        # Add original ... arguments to the recursive call if they don't conflict
+        # This ensures settings like a specific `model` passed via `...` originally are respected
+        # if `model_specification` was not used.
+        # We need to be careful not to pass ... that are already handled by recursive_call_args
+        original_dots <- list(...)
+        for(arg_name in names(original_dots)){
+            if(!arg_name %in% names(recursive_call_args)){
+                recursive_call_args[[arg_name]] <- original_dots[[arg_name]]
+            }
+        }
 
-        # TODO: how to manage the session history in these cases?
+        ans_new <- do.call(prompt_llm, recursive_call_args)
 
         return(paste0(ans_content, ans_new))
       } else if (choice == 2) {
@@ -370,14 +520,24 @@ prompt_llm <- function(
     }
   })
 
-  # Store the interaction in the session history
+  # Determine model name for logging: from model_spec if used, else from options/dots
+  logged_model_name <- NULL
+  if (!is.null(model_spec)) {
+    logged_model_name <- model_spec$model
+  } else {
+    # Fallback to options or ... if model_spec was not used
+    # This depends on how `model` was passed or set by options for the specific provider
+    # It might be in call_args$model or call_args$deployment_id
+    logged_model_name <- call_args$model %||% call_args$deployment_id %||% getOption("llmr_model")
+  }
+
   store_llm_session_data(
     messages = messages,
     response = llm_answer,
     usage = parsed$usage,
     processing_time = elapsed,
     provider = provider,
-    model = list(...)$model %||% getOption("llmr_model"),
+    model = logged_model_name,
     session_id = session_id
   )
 
