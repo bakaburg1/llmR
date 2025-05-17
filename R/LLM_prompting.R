@@ -210,7 +210,10 @@ prompt_llm <- function(
     } else if (is.list(model_specification)) {
       model_spec <- model_specification
     } else {
-      stop("'model_specification' must be either a character string (label) or a list (specification)")
+      stop(
+        "'model_specification' must be either a character string (label) or a ",
+        "list (specification)"
+      )
     }
 
     # When model_specification is provided, it dictates these primary parameters
@@ -218,7 +221,7 @@ prompt_llm <- function(
     if (!is.null(model_spec$parameters)) {
       params <- utils::modifyList(model_spec$parameters, params)
     }
-    
+
     # Prepare arguments for the provider function based on model_spec. These
     # will override anything from getOption() within the provider functions
     provider_args_from_spec$model <- model_spec$model
@@ -231,10 +234,9 @@ prompt_llm <- function(
       provider_args_from_spec$deployment_id <- model_spec$model
       provider_args_from_spec$resource_name <- model_spec$endpoint
       # Remove generic model/endpoint if azure specific ones are present
-      provider_args_from_spec$model <- NULL 
+      provider_args_from_spec$model <- NULL
       provider_args_from_spec$endpoint <- NULL
     }
-
   } else {
     # No model_specification provided, try to use current model from options
     current_model_label <- getOption("llmr_current_model")
@@ -249,7 +251,8 @@ prompt_llm <- function(
       }
     }
     # Provider remains getOption("llmr_llm_provider") or the argument default
-    # Provider functions will use their getOption() defaults for model, api_key etc.
+    # Provider functions will use their getOption() defaults for model, api_key
+    # etc.
   }
 
   if (is.null(provider)) {
@@ -269,7 +272,8 @@ prompt_llm <- function(
   llm_fun_name <- paste0("use_", provider, "_llm")
   if (!exists(llm_fun_name, mode = "function")) {
     stop(
-      "Unsupported LLM provider: ", provider,
+      "Unsupported LLM provider: ",
+      provider,
       "\nYou can set it project-wide using the llmr_llm_provider option."
     )
   }
@@ -277,7 +281,7 @@ prompt_llm <- function(
 
   # Prepare the arguments for the provider function call
   call_args <- list(body = body)
-  
+
   # Add arguments derived from model_specification (if any)
   # These take precedence and are specific to what the provider function expects
   # Filter out NULLs from provider_args_from_spec before merging
@@ -285,44 +289,79 @@ prompt_llm <- function(
 
   # Merge ... arguments, giving precedence to those from model_spec
   # and then to those explicitly passed in ...
-  # This is tricky: ... might contain model, api_key etc. that should be ignored if model_spec provided them.
-  # A safer approach: define what each provider function takes and only pass those.
+  # This is tricky: ... might contain model, api_key etc. that should be ignored
+  # if model_spec provided them. A safer approach: define what each provider
+  # function takes and only pass those.
 
-  # Let's build call_args by respecting model_spec first, then ..., then function defaults
-  # All provider functions take 'log_request'
+  # Let's build call_args by respecting model_spec first, then ..., then
+  # function defaults All provider functions take 'log_request'
   call_args$log_request <- log_request
 
-  # Add specific args based on provider, from provider_args_from_spec or ...
-  # If model_specification was used, provider_args_from_spec contains its details.
+  # Add specific args based on provider, from provider_args_from_spec or ... If
+  # model_specification was used, provider_args_from_spec contains its details.
   # Otherwise, provider functions pick up from global options.
 
   extra_args <- list(...)
 
   if (provider == "openai") {
-    call_args$model   <- provider_args_from_spec$model %||% extra_args$model %||% getOption("llmr_model")
-    call_args$api_key <- provider_args_from_spec$api_key %||% extra_args$api_key %||% getOption("llmr_api_key")
+    call_args$model <- provider_args_from_spec$model %||%
+      extra_args$model %||%
+      getOption("llmr_model")
+    call_args$api_key <- provider_args_from_spec$api_key %||%
+      extra_args$api_key %||%
+      getOption("llmr_api_key")
   } else if (provider == "azure") {
-    call_args$deployment_id <- provider_args_from_spec$deployment_id %||% extra_args$deployment_id %||% getOption("llmr_model")
-    call_args$resource_name <- provider_args_from_spec$resource_name %||% extra_args$resource_name %||% getOption("llmr_endpoint")
-    call_args$api_key       <- provider_args_from_spec$api_key %||% extra_args$api_key %||% getOption("llmr_api_key")
-    call_args$api_version   <- provider_args_from_spec$api_version %||% extra_args$api_version %||% getOption("llmr_api_version")
+    call_args$deployment_id <- provider_args_from_spec$deployment_id %||%
+      extra_args$deployment_id %||%
+      getOption("llmr_model")
+    call_args$resource_name <- provider_args_from_spec$resource_name %||%
+      extra_args$resource_name %||%
+      getOption("llmr_endpoint")
+    call_args$api_key <- provider_args_from_spec$api_key %||%
+      extra_args$api_key %||%
+      getOption("llmr_api_key")
+    call_args$api_version <- provider_args_from_spec$api_version %||%
+      extra_args$api_version %||%
+      getOption("llmr_api_version")
   } else if (provider == "custom") {
-    call_args$endpoint <- provider_args_from_spec$endpoint %||% extra_args$endpoint %||% getOption("llmr_endpoint")
-    call_args$model    <- provider_args_from_spec$model %||% extra_args$model %||% getOption("llmr_model")
-    call_args$api_key  <- provider_args_from_spec$api_key %||% extra_args$api_key %||% getOption("llmr_api_key")
+    call_args$endpoint <- provider_args_from_spec$endpoint %||%
+      extra_args$endpoint %||%
+      getOption("llmr_endpoint")
+    call_args$model <- provider_args_from_spec$model %||%
+      extra_args$model %||%
+      getOption("llmr_model")
+    call_args$api_key <- provider_args_from_spec$api_key %||%
+      extra_args$api_key %||%
+      getOption("llmr_api_key")
   } else if (provider == "gemini") {
-    call_args$model   <- provider_args_from_spec$model %||% extra_args$model %||% getOption("llmr_model")
-    call_args$api_key <- provider_args_from_spec$api_key %||% extra_args$api_key %||% getOption("llmr_api_key")
+    call_args$model <- provider_args_from_spec$model %||%
+      extra_args$model %||%
+      getOption("llmr_model")
+    call_args$api_key <- provider_args_from_spec$api_key %||%
+      extra_args$api_key %||%
+      getOption("llmr_api_key")
   } else if (provider == "mock") {
-    call_args$model <- provider_args_from_spec$model %||% extra_args$model %||% "FakeLLama"
+    call_args$model <- provider_args_from_spec$model %||%
+      extra_args$model %||%
+      "FakeLLama"
     # Mock specific params from ... if provided
-    if (!is.null(extra_args$response)) call_args$response <- extra_args$response
-    if (!is.null(extra_args$error_msg)) call_args$error_msg <- extra_args$error_msg
-    if (!is.null(extra_args$status)) call_args$status <- extra_args$status
-    if (!is.null(extra_args$retry_after)) call_args$retry_after <- extra_args$retry_after
-    if (!is.null(extra_args$simul_delay)) call_args$simul_delay <- extra_args$simul_delay
+    if (!is.null(extra_args$response)) {
+      call_args$response <- extra_args$response
+    }
+    if (!is.null(extra_args$error_msg)) {
+      call_args$error_msg <- extra_args$error_msg
+    }
+    if (!is.null(extra_args$status)) {
+      call_args$status <- extra_args$status
+    }
+    if (!is.null(extra_args$retry_after)) {
+      call_args$retry_after <- extra_args$retry_after
+    }
+    if (!is.null(extra_args$simul_delay)) {
+      call_args$simul_delay <- extra_args$simul_delay
+    }
   }
-  
+
   # Remove any NULL arguments from call_args to prevent issues with do.call
   # Especially for parameters that might not be set by options or model_spec
   call_args <- purrr::compact(call_args)
@@ -333,34 +372,46 @@ prompt_llm <- function(
   while (is.null(response_obj) || retry) {
     retry <- FALSE
     gen_start <- Sys.time()
-    
+
     # Ensure that only arguments accepted by llm_fun are passed
     # Get formal arguments of the llm_fun
     llm_fun_formals <- names(formals(llm_fun))
-    
-    # Filter call_args to include only those present in llm_fun_formals or if llm_fun accepts ...
+
+    # Filter call_args to include only those present in llm_fun_formals or if
+    # llm_fun accepts ...
     final_call_args <- call_args[names(call_args) %in% llm_fun_formals]
     if ("..." %in% llm_fun_formals) {
-        # Add back any arguments from original call_args that were not in formals (intended for ...)
-        # This assumes ... arguments were not part of provider_args_from_spec, which is mostly true
-        # A cleaner way is to ensure `extra_args` are only those not already handled.
-        # For now, pass all of call_args if ... is present. This might be too broad.
-        # Let's be more specific: only pass non-formal args from 'extra_args' if '...' is present
-        potential_dots_args <- extra_args[!names(extra_args) %in% llm_fun_formals]
-        final_call_args <- c(final_call_args, potential_dots_args)
+      # Add back any arguments from original call_args that were not in
+      # formals (intended for ...) This assumes ... arguments were not part
+      # of provider_args_from_spec, which is mostly true A cleaner way is to
+      # ensure `extra_args` are only those not already handled. For now, pass
+      # all of call_args if ... is present. This might be too broad. Let's be
+      # more specific: only pass non-formal args from 'extra_args' if '...' is
+      # present
+      potential_dots_args <- extra_args[!names(extra_args) %in% llm_fun_formals]
+      final_call_args <- c(final_call_args, potential_dots_args)
     } else {
-        # If no ..., check for unexpected arguments
-        unexpected_args <- names(call_args)[!names(call_args) %in% llm_fun_formals]
-        if (length(unexpected_args) > 0) {
-            # This case should ideally be avoided by the specific if/else for providers above
-            # For safety, we'll warn and remove them if they are not handled by the provider block logic.
-            warning(paste("Unexpected arguments for provider", provider, ":", paste(unexpected_args, collapse=", ")))
-        }
+      # If no ..., check for unexpected arguments
+      unexpected_args <- names(call_args)[
+        !names(call_args) %in% llm_fun_formals
+      ]
+      if (length(unexpected_args) > 0) {
+        # This case should ideally be avoided by the specific if/else for
+        # providers above For safety, we'll warn and remove them if they are
+        # not handled by the provider block logic.
+        warning(paste(
+          "Unexpected arguments for provider",
+          provider,
+          ":",
+          paste(unexpected_args, collapse = ", ")
+        ))
+      }
     }
-    
-    # Ensure `body` is always the first argument if not explicitly named if provider functions expect it positionally
-    # All current provider functions have `body` as their first named argument.
-    # So `final_call_args` having `body` as a named element is correct.
+
+    # Ensure `body` is always the first argument if not explicitly named if
+    # provider functions expect it positionally All current provider functions
+    # have `body` as their first named argument. So `final_call_args` having
+    # `body` as a named element is correct.
 
     response_obj <- do.call(llm_fun, final_call_args)
     gen_stop <- Sys.time()
@@ -397,7 +448,8 @@ prompt_llm <- function(
         "\nTotal tokens:",
         total_tokens
       )
-    ) |> message()
+    ) |>
+      message()
   }
 
   llm_answer <- purrr::imap_chr(parsed$choices, \(ans, i) {
@@ -469,8 +521,9 @@ prompt_llm <- function(
             content = "continue"
           ))
         )
-        
-        # Prepare arguments for recursive call, ensuring model_specification is passed if used initially
+
+        # Prepare arguments for recursive call, ensuring model_specification is
+        # passed if used initially
         recursive_call_args <- list(
           messages = messages_new,
           force_json = FALSE, # Usually not forced for continuation
@@ -479,32 +532,40 @@ prompt_llm <- function(
           session_id = session_id,
           provider = provider # Provider is already correctly set
         )
-        
-        # If original call used model_specification, pass it along, otherwise provider functions will use options
+
+        # If original call used model_specification, pass it along, otherwise
+        # provider functions will use options
         if (!is.null(model_specification)) {
           recursive_call_args$model_specification <- model_specification
         } else {
-          # If model_specification was NULL, but ... might have contained model details for specific provider,
-          # we need to pass those. The provider-specific args (model, api_key, etc.) should be passed if they were in `...`.
-          # This part gets tricky; the simplest is to rely on the fact that if model_specification was NULL,
-          # the provider and its params are already set up (either by options or initial ...)
-          # We might need to reconstruct relevant parts of `...` if they are not covered by model_spec/options.
-          # For now, let's assume if model_specification was NULL, the existing provider context (from options or initial ...) is sufficient.
-          # The `extra_args` list (... from parent call) could be passed again.
-          # However, the recursive prompt_llm will again resolve ... based on its own context.
-          # Simplest: if model_specification was used, pass it. Otherwise, let the recursive call use its defaults/options or specific ... args.
-          # The current ... in scope here are for the *current* call, not to be confused with parent's ...
+          # If model_specification was NULL, but ... might have contained model
+          # details for specific provider, we need to pass those. The
+          # provider-specific args (model, api_key, etc.) should be passed if
+          # they were in `...`. This part gets tricky; the simplest is to rely
+          # on the fact that if model_specification was NULL, the provider and
+          # its params are already set up (either by options or initial ...) We
+          # might need to reconstruct relevant parts of `...` if they are not
+          # covered by model_spec/options. For now, let's assume if
+          # model_specification was NULL, the existing provider context (from
+          # options or initial ...) is sufficient. The `extra_args` list (...
+          # from parent call) could be passed again. However, the recursive
+          # prompt_llm will again resolve ... based on its own context.
+          # Simplest: if model_specification was used, pass it. Otherwise, let
+          # the recursive call use its defaults/options or specific ... args.
+          # The current ... in scope here are for the *current* call, not to be
+          # confused with parent's ...
         }
-        
-        # Add original ... arguments to the recursive call if they don't conflict
-        # This ensures settings like a specific `model` passed via `...` originally are respected
-        # if `model_specification` was not used.
-        # We need to be careful not to pass ... that are already handled by recursive_call_args
+
+        # Add original ... arguments to the recursive call if they don't
+        # conflict This ensures settings like a specific `model` passed via
+        # `...` originally are respected if `model_specification` was not used.
+        # We need to be careful not to pass ... that are already handled by
+        # recursive_call_args
         original_dots <- list(...)
-        for(arg_name in names(original_dots)){
-            if(!arg_name %in% names(recursive_call_args)){
-                recursive_call_args[[arg_name]] <- original_dots[[arg_name]]
-            }
+        for (arg_name in names(original_dots)) {
+          if (!arg_name %in% names(recursive_call_args)) {
+            recursive_call_args[[arg_name]] <- original_dots[[arg_name]]
+          }
         }
 
         ans_new <- do.call(prompt_llm, recursive_call_args)
@@ -520,15 +581,18 @@ prompt_llm <- function(
     }
   })
 
-  # Determine model name for logging: from model_spec if used, else from options/dots
+  # Determine model name for logging: from model_spec if used, else from
+  # options/dots
   logged_model_name <- NULL
   if (!is.null(model_spec)) {
     logged_model_name <- model_spec$model
   } else {
-    # Fallback to options or ... if model_spec was not used
-    # This depends on how `model` was passed or set by options for the specific provider
-    # It might be in call_args$model or call_args$deployment_id
-    logged_model_name <- call_args$model %||% call_args$deployment_id %||% getOption("llmr_model")
+    # Fallback to options or ... if model_spec was not used. This depends on how
+    # `model` was passed or set by options for the specific provider. It might
+    # be in call_args$model or call_args$deployment_id
+    logged_model_name <- call_args$model %||%
+      call_args$deployment_id %||%
+      getOption("llmr_model")
   }
 
   store_llm_session_data(

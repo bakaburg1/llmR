@@ -13,7 +13,7 @@ test_that("record_llmr_model stores model specifications with parameters", {
   # Record a model with parameters
   record_llmr_model(
     label = "test-model",
-    provider = "custom",  # Using custom instead of openai as it's more flexible
+    provider = "custom", # Using custom instead of openai as it's more flexible
     endpoint = "http://test.endpoint",
     model = "gpt-4",
     api_key = "test-key",
@@ -26,7 +26,7 @@ test_that("record_llmr_model stores model specifications with parameters", {
   # Get the stored model
   stored_models <- getOption("llmr_stored_models")
   expect_true("test-model" %in% names(stored_models))
-  
+
   model_spec <- stored_models[["test-model"]]
   expect_equal(model_spec$provider, "custom")
   expect_equal(model_spec$model, "gpt-4")
@@ -81,7 +81,7 @@ test_that("prompt_llm uses stored parameters as defaults", {
 
   # Store the request parameters for inspection
   request_params <- NULL
-  
+
   withr::with_options(
     list(llmr_log_requests = TRUE),
     {
@@ -127,7 +127,7 @@ test_that("prompt_llm logs parameters correctly", {
 
   # Set as current model
   set_llmr_model("test-model")
-  
+
   withr::with_options(
     list(llmr_log_requests = TRUE),
     {
@@ -144,13 +144,13 @@ test_that("prompt_llm logs parameters correctly", {
         prompt_llm("Hello"),
         '"temperature":0.7.*"max_tokens":1000'
       )
-      
+
       # Test overridden parameters are logged
       expect_message(
         prompt_llm("Hello", params = list(temperature = 0.9)),
         '"temperature":0.9.*"max_tokens":1000'
       )
-      
+
       # Test new parameters are logged while keeping defaults
       expect_message(
         prompt_llm("Hello", params = list(top_p = 0.95)),
@@ -201,10 +201,7 @@ test_that("prompt_llm works without current model", {
 
   # Should work with provider and parameters
   expect_no_error(
-    prompt_llm("Hello", 
-      provider = "custom",
-      params = list(temperature = 0.7)
-    )
+    prompt_llm("Hello", provider = "custom", params = list(temperature = 0.7))
   )
 })
 
@@ -226,7 +223,7 @@ test_that("prompt_llm accepts model specification label", {
   request_params <- NULL
   request_url <- NULL
   request_headers <- NULL
-  
+
   withr::with_options(
     list(llmr_log_requests = TRUE),
     {
@@ -262,7 +259,7 @@ test_that("prompt_llm accepts complete model specification", {
   request_params <- NULL
   request_url <- NULL
   request_headers <- NULL
-  
+
   withr::with_options(
     list(llmr_log_requests = TRUE),
     {
@@ -321,4 +318,4 @@ test_that("prompt_llm accepts complete model specification", {
       )
     }
   )
-}) 
+})

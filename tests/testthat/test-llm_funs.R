@@ -18,7 +18,9 @@ on.exit({
 withr::with_options(test_options, {
   test_that("use_openai_llm sends request and handles response", {
     with_mocked_bindings(
-      POST = function(...) {use_mock_llm(response = "OpenAI LLM Response")},
+      POST = function(...) {
+        use_mock_llm(response = "OpenAI LLM Response")
+      },
       .package = "httr",
       {
         body <- list(messages = list(list(role = "user", content = "Hello")))
@@ -33,7 +35,9 @@ withr::with_options(test_options, {
 
   test_that("use_azure_llm sends request and handles response", {
     with_mocked_bindings(
-      POST = function(...) {use_mock_llm(response = "Azure LLM Response")},
+      POST = function(...) {
+        use_mock_llm(response = "Azure LLM Response")
+      },
       .package = "httr",
       {
         body <- list(messages = list(list(role = "user", content = "Hello")))
@@ -41,8 +45,10 @@ withr::with_options(test_options, {
         expect_equal(result$status_code, 200)
 
         prompt_llm(
-          "test", provider = "azure",
-          resource_name = "test-resource") |>
+          "test",
+          provider = "azure",
+          resource_name = "test-resource"
+        ) |>
           expect_equal("Azure LLM Response")
       }
     )
@@ -50,7 +56,9 @@ withr::with_options(test_options, {
 
   test_that("use_custom_llm sends request and handles response", {
     with_mocked_bindings(
-      POST = function(...) {use_mock_llm(response = "Custom LLM Response")},
+      POST = function(...) {
+        use_mock_llm(response = "Custom LLM Response")
+      },
       .package = "httr",
       {
         body <- list(messages = list(list(role = "user", content = "Hello")))
@@ -171,7 +179,10 @@ withr::with_options(test_options, {
         expect_true("choices" %in% names(parsed_content))
         expect_true("message" %in% names(parsed_content$choices))
         expect_true("content" %in% names(parsed_content$choices$message))
-        expect_equal(parsed_content$choices$message$content, "Gemini Mock Response")
+        expect_equal(
+          parsed_content$choices$message$content,
+          "Gemini Mock Response"
+        )
         expect_equal(parsed_content$choices$finish_reason, "STOP")
 
         # Check usage information
@@ -185,8 +196,4 @@ withr::with_options(test_options, {
       }
     )
   })
-
-
-
-
 })

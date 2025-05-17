@@ -15,7 +15,6 @@ test_that("prompt_llm sends messages and handles responses", {
 })
 
 test_that("prompt_llm handles rate limiting warning", {
-
   options(
     llmr_mock_fun_status = 429,
     llmr_mock_fun_retry_after = 0.05,
@@ -30,48 +29,52 @@ test_that("prompt_llm handles rate limiting warning", {
 
   # Test if "llmr_attempt_number" got reset on error
   expect_equal(
-    getOption("llmr_attempt_number"), 1
+    getOption("llmr_attempt_number"),
+    1
   )
   expect_null(res$result$result)
   expect_equal(res$output, "")
-  expect_setequal(res$warnings, c(
-    "Rate limit exceeded. Waiting before retrying.",
-    "Mock rate limit error."
-  ))
+  expect_setequal(
+    res$warnings,
+    c(
+      "Rate limit exceeded. Waiting before retrying.",
+      "Mock rate limit error."
+    )
+  )
   expect_setequal(
     res$result$error$message,
-    "Maximum number of attempts (3) on `retry` error reached.")
+    "Maximum number of attempts (3) on `retry` error reached."
+  )
 })
 
 test_that("prompt_llm handles errors in response", {
-
   options(
     llmr_mock_fun_status = 400
   )
 
   expect_error(
     prompt_llm("Test", provider = "mock"),
-    "Error in LLM request \\(400\\): Mock general error")
+    "Error in LLM request \\(400\\): Mock general error"
+  )
 
   options(opts)
 })
 
 test_that("prompt_llm handles missing provider", {
-
   options(
     llmr_llm_provider = NULL
   )
 
   expect_error(
     prompt_llm(messages = c(user = "Hello")),
-    "Language model provider is not set.")
+    "Language model provider is not set."
+  )
 
   options(opts)
 })
 
 # Integration test: Combine process_messages and prompt_llm
 test_that("process_messages and prompt_llm integration", {
-
   options(
     llmr_mock_fun_status = 200
   )

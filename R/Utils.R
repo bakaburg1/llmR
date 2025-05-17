@@ -96,7 +96,7 @@ store_llm_session_data <- function(
         "a 'difftime' object. Received an invalid value that resulted in NA."
       )
     }
-    
+
     # Update processing_time to its valid numeric form for storage
     processing_time <- numeric_processing_time
 

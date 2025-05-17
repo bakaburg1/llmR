@@ -36,7 +36,8 @@ test_that("use_mock_llm respects global mock response option", {
 
     content <- httr::content(response, as = "parsed", encoding = "UTF-8")
     expect_equal(
-      content$choices[[1]]$message$content, "Global test successful!")
-
+      content$choices[[1]]$message$content,
+      "Global test successful!"
+    )
   })
 })
