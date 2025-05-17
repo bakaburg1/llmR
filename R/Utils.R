@@ -69,22 +69,49 @@ store_llm_session_data <- function(
   session_id <- session_id %||% set_session_id()
 
   # Extract the number of tokens generated and the input tokens
-  input_tokens <- usage$prompt_tokens
-  output_tokens <- usage$completion_tokens
+  # Safely handle if usage is NULL, defaulting tokens to NA_integer_
+  input_tokens <- if (is.null(usage)) NA_integer_ else usage$prompt_tokens
+  output_tokens <- if (is.null(usage)) NA_integer_ else usage$completion_tokens
 
-  # Extract the processing time as seconds
-  if (inherits(processing_time, "difftime")) {
-    processing_time <- as.numeric(processing_time, "secs")
-  }
-  if (is.na(as.numeric(processing_time))) {
-    stop(
-      "Processing time should be either a number of seconds or ",
-      "a 'difftime' object"
-    )
-  }
+  # Extract the processing time as seconds and calculate generation speed
+  if (is.null(processing_time)) {
+    # If processing_time is NULL, it means not provided.
+    # Store NA for processing_time and gen_speed.
+    processing_time <- NA_real_
+    gen_speed <- NA_real_
+  } else {
+    # processing_time was provided. Convert if difftime.
+    if (inherits(processing_time, "difftime")) {
+      processing_time <- as.numeric(processing_time, units = "secs")
+    }
 
-  # Calculate the generation speed
-  gen_speed <- output_tokens / processing_time
+    # Validate the (potentially converted) processing_time.
+    # At this point, processing_time is not NULL.
+    # as.numeric() will handle various types; we check if it results in NA.
+    numeric_processing_time <- as.numeric(processing_time)
+
+    if (is.na(numeric_processing_time)) {
+      stop(
+        "Processing time, if provided, should be a number of seconds or ",
+        "a 'difftime' object. Received an invalid value that resulted in NA."
+      )
+    }
+    
+    # Update processing_time to its valid numeric form for storage
+    processing_time <- numeric_processing_time
+
+    # Calculate generation speed
+    if (is.na(output_tokens) || is.na(processing_time)) {
+      gen_speed <- NA_real_
+    } else if (processing_time == 0) {
+      # Handle division by zero: speed is Inf if tokens > 0, 0 if tokens == 0,
+      # NaN if tokens < 0 (unlikely) Or, consistently return NA or Inf. Inf
+      # seems informative here.
+      gen_speed <- if (output_tokens == 0) 0 else Inf
+    } else {
+      gen_speed <- output_tokens / processing_time
+    }
+  }
 
   # Get the current timestamp
   ts <- Sys.time()
