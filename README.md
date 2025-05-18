@@ -4,6 +4,7 @@
 # llmR: R Interface to Large Language Models
 
 <!-- badges: start -->
+
 <!-- badges: end -->
 
 `llmR` is an R package that provides a seamless interface to various
@@ -42,21 +43,48 @@ remotes::install_github("bakaburg1/llmR")
 
 ## Usage
 
-### Setup
+### Direct Model Call
 
-Before using `llmR`, you need to set up your language model providers.
-You can do this using the `record_llmr_model()` function, which allows
-you to store the credentials for multiple models in the session options.
-Users can then use `set_llmr_model(label, model)` to activate one of the
-stored models. The `model` argument is not mandatory if you want to use
-a default model. For the sake of simplicity, you can for example set two
-models specifications (i.e., under different labels) to use different
-models from the same provider without having to remember the `model`
-name.
+You can directly call an LLM by providing all necessary connection and
+authentication details within the `prompt_llm` function using the
+`model_specification` argument. This is useful for quick tests or when
+you don’t need to reuse model configurations.
 
-A useful tip is to put a call of `record_llmr_model()` for each model of
-interest in the user `.Rprofile` so that the models are immediately
-available in the session.
+Here’s a simple example of how to send a prompt to an LLM provider by
+passing a full model specification:
+
+``` r
+# Send a prompt by providing the full model specification
+response <- prompt_llm(
+  messages = "Hello there!",
+  model_specification = list(
+    provider = "openai", # Or "azure", "gemini", "custom"
+    model = "gpt-4o",    # Specific model name
+    api_key = "your_openai_api_key", # Your API key
+    # Add other necessary parameters like 'endpoint' or 'api_version' if needed
+    # e.g., for Azure:
+    # endpoint = "https://your-resource-name.openai.azure.com",
+    # api_version = "2024-06-01",
+    # Or for a custom OpenAI-compatible server:
+    # endpoint = "http://localhost:11434/v1/chat/completions"
+    parameters = list(temperature = 0.7) # Optional parameters for the call
+  )
+)
+
+cat(response) # cat() allows to get a formatted output
+```
+
+### Storing and Reusing Model Configurations
+
+For more convenient and organized usage, especially when working with
+multiple models or providers, `llmR` allows you to store model
+configurations and refer to them using a simple label.
+
+#### Recording Model Configurations
+
+You can use the `record_llmr_model()` function to store credentials and
+settings for various models. This is typically done once, perhaps in
+your user `.Rprofile` for availability across sessions.
 
 These are examples of how to set up LLMs from various providers:
 
@@ -71,6 +99,9 @@ llmR::record_llmr_model(
   provider = "openai",
   # Optional model name for endpoints with multiple models such the OpenAi one
   model = "gpt-4o",
+  # Default parameters to be sent with the API request
+  parameters = list(temperature = 0.5),
+  # The API key to use for the provider
   api_key = "your_openai_api_key")
 
 # Set up Azure language model
@@ -105,29 +136,58 @@ llmR::record_llmr_model(
     provider = "custom",
     endpoint = "https://Mistral-large-2407-my_azure_resource.server_location.models.ai.azure.com/v1/chat/completions",
     api_key = "your_model_api_key")
-    
+
 # Example of local model served by Ollama
 llmR::record_llmr_model(
   label = "ollama-llama3.1",
+  provider = "custom", # For Ollama, provider is 'custom'
   endpoint = "http://localhost:11434/v1/chat/completions",
-  model = "llama3.1",
+  model = "llama3.1", # Ensure this matches the model name in Ollama
+  # No api_key is needed for local Ollama by default
 )
 
 # Choose your default model
 llmR::set_llmr_model("openai")
 ```
 
-### Basic Example
-
-Here’s a simple example of how to send a prompt to an LLM provider:
+Once models are recorded, you can use their labels directly in
+`prompt_llm` via the `model_specification` argument:
 
 ``` r
-# Send a prompt to the regestered model (OpenAi gpt-4o in this case)
+# Send a prompt using a recorded model's label
 response <- prompt_llm(
-  messages = c(user = "Hello there!")
+  messages = "Tell me a joke.",
+  model_specification = "openai" # Assuming 'openai' label was recorded
 )
 
 cat(response) # cat() allows to get a formatted output
+```
+
+#### Setting a Default Model for the Session
+
+To avoid specifying the model in every `prompt_llm` call, for example if
+you want to use llmR in a script, you can set a default model for the
+current R session using `set_llmr_model(label)`. The `label` must
+correspond to a model previously stored with `record_llmr_model()`.
+
+``` r
+# Choose your default model for the session
+llmR::set_llmr_model("openai") # Sets 'openai' as the default
+
+# Now, prompt_llm will use the 'openai' configuration by default
+response_default <- prompt_llm(
+  messages = "Hello again!"
+)
+
+cat(response_default)
+
+# You can still override the session default by providing model_specification
+response_override <- prompt_llm(
+  messages = "Explain quantum physics simply.",
+  model_specification = "gemini" # Uses 'gemini' for this call only
+)
+
+cat(response_override)
 ```
 
 ### Prompting the LLMs
